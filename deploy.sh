@@ -7,9 +7,16 @@ set -Eeuo pipefail
 BLOG_APP_DIR="${BLOG_APP_DIR:-/srv/leaf-blog}"
 BLOG_USER="${BLOG_USER:-leaf}"
 BLOG_DOMAIN="${BLOG_DOMAIN:-}"
-BLOG_PORT="${BLOG_PORT:-8080}"
+BLOG_PORT="${BLOG_PORT:-}"
+BLOG_PORT_EXPLICIT=false
+if [[ -n "$BLOG_PORT" ]]; then
+  BLOG_PORT_EXPLICIT=true
+else
+  BLOG_PORT=8080
+fi
 BLOG_ENABLE_HTTPS="${BLOG_ENABLE_HTTPS:-false}"
 BLOG_HTTPS_EMAIL="${BLOG_HTTPS_EMAIL:-}"
+BLOG_CONFIGURE_NGINX="${BLOG_CONFIGURE_NGINX:-true}"
 BLOG_STATE_DIR="${BLOG_STATE_DIR:-/var/lib/leaf-blog}"
 BLOG_BACKUP_DIR="${BLOG_BACKUP_DIR:-/var/backups/leaf-blog}"
 BLOG_SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -33,6 +40,7 @@ Leaf Blog 一键部署
   --port NUMBER        Node 本机端口，默认 8080
   --https-email EMAIL  申请 HTTPS 证书的邮箱
   --https              自动申请 HTTPS
+  --no-nginx            不安装或配置系统 Nginx（使用 1Panel 反向代理）
   --help               显示帮助
 
 脚本不会删除数据库、JSON、文章或备份，也不会覆盖已有 .env。
@@ -44,9 +52,10 @@ while [[ $# -gt 0 ]]; do
     --domain) [[ $# -ge 2 ]] || die "--domain 需要一个值"; BLOG_DOMAIN="$2"; shift 2 ;;
     --app-dir) [[ $# -ge 2 ]] || die "--app-dir 需要一个值"; BLOG_APP_DIR="$2"; shift 2 ;;
     --user) [[ $# -ge 2 ]] || die "--user 需要一个值"; BLOG_USER="$2"; shift 2 ;;
-    --port) [[ $# -ge 2 ]] || die "--port 需要一个值"; BLOG_PORT="$2"; shift 2 ;;
+    --port) [[ $# -ge 2 ]] || die "--port 需要一个值"; BLOG_PORT="$2"; BLOG_PORT_EXPLICIT=true; shift 2 ;;
     --https-email) [[ $# -ge 2 ]] || die "--https-email 需要一个值"; BLOG_HTTPS_EMAIL="$2"; shift 2 ;;
     --https) BLOG_ENABLE_HTTPS=true; shift ;;
+    --no-nginx) BLOG_CONFIGURE_NGINX=false; shift ;;
     --help|-h) usage; exit 0 ;;
     *) die "未知选项：$1（使用 --help 查看用法）" ;;
   esac
@@ -66,6 +75,10 @@ if [[ -z "$BLOG_DOMAIN" ]]; then
 fi
 [[ "$BLOG_DOMAIN" =~ ^[A-Za-z0-9.-]+$ ]] || die "域名格式不合法"
 
+if [[ "$BLOG_ENABLE_HTTPS" == true && "$BLOG_CONFIGURE_NGINX" != true ]]; then
+  die "使用 --no-nginx 时请在 1Panel 中配置 HTTPS，不要同时使用 --https"
+fi
+
 package_installed() { dpkg-query -s "$1" >/dev/null 2>&1; }
 install_missing_packages() {
   local missing=()
@@ -82,7 +95,11 @@ install_missing_packages() {
   fi
 }
 
-install_missing_packages nginx redis-server redis-tools sqlite3 git curl ca-certificates build-essential rsync openssl
+system_packages=(redis-server redis-tools sqlite3 git curl ca-certificates build-essential rsync openssl)
+if [[ "$BLOG_CONFIGURE_NGINX" == true ]]; then
+  system_packages+=(nginx)
+fi
+install_missing_packages "${system_packages[@]}"
 
 node_major=0
 if command -v node >/dev/null 2>&1; then node_major="$(node -p "Number(process.versions.node.split('.')[0])")"; fi
@@ -170,6 +187,28 @@ fi
 
 chown -R "$BLOG_USER:$BLOG_GROUP" "$BLOG_APP_DIR" "$BLOG_STATE_DIR" "$BLOG_BACKUP_DIR"
 chmod 600 "$BLOG_APP_DIR/.env"
+
+env_port_from_file=""
+if grep -qE '^[[:space:]]*PORT[[:space:]]*=' "$BLOG_APP_DIR/.env"; then
+  env_port_from_file="$(sed -nE 's/^[[:space:]]*PORT[[:space:]]*=([0-9]+)[[:space:]]*$/\1/p' "$BLOG_APP_DIR/.env" | head -n 1)"
+  [[ "$env_port_from_file" =~ ^[0-9]+$ ]] || die "$BLOG_APP_DIR/.env 中的 PORT 必须是数字"
+  if [[ "$BLOG_PORT_EXPLICIT" != true ]]; then
+    BLOG_PORT="$env_port_from_file"
+  fi
+fi
+[[ "$BLOG_PORT" =~ ^[0-9]+$ && "$BLOG_PORT" -ge 1 && "$BLOG_PORT" -le 65535 ]] || die "端口必须是 1-65535 之间的数字"
+
+set_env_port() {
+  local env_file="$1"
+  if grep -qE '^[[:space:]]*PORT[[:space:]]*=' "$env_file"; then
+    sed -i -E "s/^[[:space:]]*PORT[[:space:]]*=.*/PORT=$BLOG_PORT/" "$env_file"
+  else
+    printf '\nPORT=%s\n' "$BLOG_PORT" >> "$env_file"
+  fi
+}
+if [[ "$BLOG_PORT_EXPLICIT" == true || -z "$env_port_from_file" ]]; then
+  set_env_port "$BLOG_APP_DIR/.env"
+fi
 runuser -u "$BLOG_USER" -- "$BLOG_NPM_BIN" ci --omit=dev --prefix "$BLOG_APP_DIR"
 
 systemctl enable --now redis-server.service
@@ -199,6 +238,7 @@ EOF
 systemctl daemon-reload
 systemctl enable --now leaf-blog.service
 
+if [[ "$BLOG_CONFIGURE_NGINX" == true ]]; then
 cat > /etc/nginx/sites-available/leaf-blog <<EOF
 server {
     listen 80;
@@ -224,6 +264,9 @@ ln -sfn /etc/nginx/sites-available/leaf-blog "$nginx_link"
 nginx -t
 systemctl enable --now nginx.service
 systemctl reload nginx.service
+else
+  log "已跳过系统 Nginx；请在 1Panel 中将域名反向代理到 http://127.0.0.1:$BLOG_PORT"
+fi
 
 healthy=false
 for _ in {1..30}; do
@@ -249,6 +292,10 @@ if [[ "$BLOG_ENABLE_HTTPS" == true ]]; then
 fi
 
 log "部署完成"
-printf '\n访问地址：http%s://%s\n' "$([[ "$BLOG_ENABLE_HTTPS" == true ]] && printf 's' || true)" "$BLOG_DOMAIN"
+if [[ "$BLOG_CONFIGURE_NGINX" == true ]]; then
+  printf '\n访问地址：http%s://%s\n' "$([[ "$BLOG_ENABLE_HTTPS" == true ]] && printf 's' || true)" "$BLOG_DOMAIN"
+else
+  printf '\n应用地址（供 1Panel 反向代理）：http://127.0.0.1:%s\n' "$BLOG_PORT"
+fi
 printf '健康检查：curl http://127.0.0.1:%s/api/health\n' "$BLOG_PORT"
 printf '日志：journalctl -u leaf-blog -f\n'

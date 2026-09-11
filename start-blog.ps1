@@ -1,4 +1,21 @@
+param(
+    [int]$Port = 0
+)
+
 $ErrorActionPreference = 'Stop'
+
+$blogPort = if ($Port -gt 0) {
+    $Port
+} elseif ($env:BLOG_PORT -match '^\d+$') {
+    [int]$env:BLOG_PORT
+} elseif ($env:PORT -match '^\d+$') {
+    [int]$env:PORT
+} else {
+    8080
+}
+if ($blogPort -lt 1 -or $blogPort -gt 65535) {
+    throw 'Port must be between 1 and 65535.'
+}
 
 $projectRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $runDir = Join-Path $projectRoot '.run'
@@ -36,8 +53,8 @@ function Stop-TrackedProcess([int]$processId) {
     }
 }
 
-if (Test-LocalPort 8080) {
-    Write-Host 'Blog is already running: http://localhost:8080' -ForegroundColor Green
+if (Test-LocalPort $blogPort) {
+    Write-Host "Blog is already running: http://localhost:$blogPort" -ForegroundColor Green
     exit 0
 }
 
@@ -47,8 +64,8 @@ if (-not (Test-Path -LiteralPath (Join-Path $projectRoot 'server.js'))) {
     throw 'server.js was not found in the project directory.'
 }
 
-# SQLite mode uses port 8080. Set BLOG_HOST to override the bind address.
-$env:PORT = '8080'
+# Use -Port NUMBER or BLOG_PORT to override the default port 8080.
+$env:PORT = [string]$blogPort
 if (-not $env:BLOG_HOST) { $env:BLOG_HOST = '127.0.0.1' }
 $env:HOST = $env:BLOG_HOST
 
@@ -64,7 +81,7 @@ $nodeProcess = Start-Process -FilePath $nodeExe `
 Set-Content -LiteralPath $pidFile -Value $nodeProcess.Id -Encoding ASCII
 $started = $false
 for ($i = 0; $i -lt 30; $i++) {
-    if (Test-LocalPort 8080) {
+    if (Test-LocalPort $blogPort) {
         $started = $true
         break
     }
@@ -81,6 +98,6 @@ if (-not $started) {
     exit 1
 }
 
-Write-Host 'Leaf blog started: http://localhost:8080' -ForegroundColor Green
+Write-Host "Leaf blog started: http://localhost:$blogPort" -ForegroundColor Green
 Write-Host 'Runtime: Node.js with SQLite storage.'
 Write-Host "Log directory: $logDir"

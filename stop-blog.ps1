@@ -1,4 +1,22 @@
+param(
+    [int]$Port = 0
+)
+
 $ErrorActionPreference = 'Continue'
+
+$blogPort = if ($Port -gt 0) {
+    $Port
+} elseif ($env:BLOG_PORT -match '^\d+$') {
+    [int]$env:BLOG_PORT
+} elseif ($env:PORT -match '^\d+$') {
+    [int]$env:PORT
+} else {
+    8080
+}
+if ($blogPort -lt 1 -or $blogPort -gt 65535) {
+    Write-Error 'Port must be between 1 and 65535.'
+    exit 1
+}
 
 $projectRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $runDir = Join-Path $projectRoot '.run'
@@ -18,7 +36,7 @@ function Stop-TrackedProcess([int]$processId) {
 function Stop-ProjectJsonServer {
     $projectPattern = [regex]::Escape($projectRoot)
     $stoppedAny = $false
-    $listeners = Get-NetTCPConnection -LocalPort 8080 -State Listen -ErrorAction SilentlyContinue
+    $listeners = Get-NetTCPConnection -LocalPort $blogPort -State Listen -ErrorAction SilentlyContinue
     foreach ($listener in $listeners) {
         $ownerPid = [int]$listener.OwningProcess
         $processInfo = Get-CimInstance Win32_Process -Filter "ProcessId=$ownerPid" -ErrorAction SilentlyContinue
@@ -42,8 +60,8 @@ if (Test-Path -LiteralPath $pidFile) {
 
 if (Stop-ProjectJsonServer) { $stopped = $true }
 
-if (Test-NetConnection 127.0.0.1 -Port 8080 -InformationLevel Quiet -WarningAction SilentlyContinue) {
-    Write-Warning 'Port 8080 is still in use. It may belong to another program or require Administrator permission.'
+if (Test-NetConnection 127.0.0.1 -Port $blogPort -InformationLevel Quiet -WarningAction SilentlyContinue) {
+    Write-Warning "Port $blogPort is still in use. It may belong to another program or require Administrator permission."
 }
 
 if ($stopped) {

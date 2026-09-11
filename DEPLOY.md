@@ -1,6 +1,6 @@
 # Leaf Blog 服务器部署教程
 
-本文适用于当前版本的 Leaf Blog：Node.js + SQLite + Redis + Nginx。
+本文适用于当前版本的 Leaf Blog：Node.js + SQLite + Redis。外部访问可以使用脚本配置的 Nginx，也可以使用 1Panel 反向代理。
 
 ## 一键部署
 
@@ -14,6 +14,12 @@ chmod +x deploy.sh
 sudo bash deploy.sh --domain blog.example.com
 ```
 
+Node 默认使用本机 8080 端口，也可以自定义，例如：
+
+```bash
+sudo bash deploy.sh --domain blog.example.com --port 9000
+```
+
 如果从 GitHub 拉取代码，执行前先确认仓库中没有隐私文件；脚本会把运行时数据排除在同步之外。
 
 需要同时申请 HTTPS：
@@ -23,6 +29,28 @@ sudo bash deploy.sh --domain blog.example.com --https --https-email admin@exampl
 ```
 
 脚本不会删除已有数据库、JSON、文章和备份，不会覆盖已有 `.env`。首次运行会交互询问后台 QQ 号、后台密码和 SMTP 配置。
+
+### 使用 1Panel 反向代理
+
+如果服务器已经由 1Panel 管理网站和 HTTPS，请跳过系统 Nginx 配置：
+
+```bash
+sudo bash deploy.sh --domain blog.example.com --no-nginx
+```
+
+然后在 1Panel 中将域名反向代理到：
+
+```text
+http://127.0.0.1:8080
+```
+
+如果部署时使用自定义端口，例如 9000，两处都要使用 9000：
+
+```bash
+sudo bash deploy.sh --domain blog.example.com --no-nginx --port 9000
+```
+
+1Panel 的代理目标填写 `http://127.0.0.1:9000`，HTTPS 也在 1Panel 中申请。使用 `--no-nginx` 时不要再加 `--https`。
 
 ### 安全上传 GitHub
 
@@ -57,7 +85,7 @@ git commit -m "停止跟踪运行时隐私数据"
 - Ubuntu 22.04/24.04 x64
 - Node.js 22 或更高版本
 - Redis 7 或更高版本
-- Nginx
+- Nginx（使用脚本自带反向代理时需要；使用 1Panel 时可不安装）
 - 一个已经解析到服务器的域名，例如 `blog.example.com`
 
 当前项目使用 `better-sqlite3@13`，服务器上的 Node.js 不能低于 22。SQLite 不需要单独安装数据库服务，Node.js 依赖会自带 SQLite 运行库；Redis 需要单独运行。

@@ -63,11 +63,36 @@ sudo bash deploy.sh \
 
 HTTPS 证书由 Certbot 申请和续期。没有域名时不要使用 --https。
 
+### 如果使用 1Panel 反向代理
+
+如果服务器已经由 1Panel 管理网站和 HTTPS，不要让本脚本再配置系统 Nginx。执行：
+
+~~~bash
+chmod +x deploy.sh
+sudo bash deploy.sh --domain blog.example.com --no-nginx
+~~~
+
+然后在 1Panel 中创建网站并设置反向代理：
+
+- 代理目标：`http://127.0.0.1:8080`
+- 域名：你的博客域名
+- HTTPS：在 1Panel 中申请和配置
+
+这种方式不需要使用 --https，也不会安装或占用系统 Nginx 的 80 端口。Redis 仍由脚本自动安装和启动。
+
+如果不使用默认的 8080 端口，例如改成 9000：
+
+~~~bash
+sudo bash deploy.sh --domain blog.example.com --no-nginx --port 9000
+~~~
+
+此时 1Panel 的代理目标也要改为 `http://127.0.0.1:9000`。部署脚本会把端口写入生产环境配置，并用同一个端口执行健康检查。
+
 ## 部署脚本会做什么
 
 deploy.sh 只支持 Ubuntu / Debian，并且需要 root 或 sudo 权限。它会：
 
-1. 检查 Node.js 22、npm、SQLite CLI、Redis、Nginx、Git、编译工具和基础工具。
+1. 检查 Node.js 22、npm、SQLite CLI、Redis、Git、编译工具和基础工具；默认还会检查 Nginx。
 2. 缺少依赖时自动安装，已经安装的依赖跳过。
 3. 创建低权限运行用户 leaf。
 4. 将代码同步到 /srv/leaf-blog。
@@ -75,7 +100,7 @@ deploy.sh 只支持 Ubuntu / Debian，并且需要 root 或 sudo 权限。它会
 6. 将备份放到 /var/backups/leaf-blog。
 7. 启动 Redis，并检查是否返回 PONG。
 8. 创建并启动 leaf-blog.service。
-9. 配置 Nginx 反向代理，并禁止访问 .env、数据库、日志、备份和依赖目录。
+9. 默认配置 Nginx 反向代理，并禁止访问 .env、数据库、日志、备份和依赖目录；使用 --no-nginx 时跳过这一步。
 10. 检查 /api/health，并检查外部图片、音乐和友情链接。
 
 外部资源检查失败只会给出警告，不会阻止博客启动；部署完成后应替换失效链接。
@@ -100,9 +125,15 @@ sudo bash deploy.sh --domain blog.example.com --port 8080
 
 # 自动申请 HTTPS
 sudo bash deploy.sh --domain blog.example.com --https --https-email admin@example.com
+
+# 使用 1Panel 反向代理，不安装或配置系统 Nginx
+sudo bash deploy.sh --domain blog.example.com --no-nginx
+
+# 使用 1Panel 反向代理并把 Node 端口改为 9000
+sudo bash deploy.sh --domain blog.example.com --no-nginx --port 9000
 ~~~
 
-Node 服务默认只监听 127.0.0.1:8080，外部访问统一经过 Nginx。不要把 8080 或 Redis 的 6379 端口开放到公网。
+Node 服务默认只监听 127.0.0.1:8080，也可以用 --port NUMBER 改成其他本机端口。外部访问统一经过 Nginx 或 1Panel。不要把 Node 端口或 Redis 的 6379 端口开放到公网。
 
 ## 部署后管理
 
@@ -133,6 +164,12 @@ curl http://127.0.0.1:8080/api/health
 
 正常情况下会看到 healthy: true，并且日志中显示共享状态为 Redis。
 
+如果部署时使用了其他端口，例如 9000，健康检查也要使用对应端口：
+
+~~~bash
+curl http://127.0.0.1:9000/api/health
+~~~
+
 ## 更新博客
 
 在服务器上执行：
@@ -146,6 +183,13 @@ sudo bash deploy.sh --domain blog.example.com
 更新脚本不会覆盖服务器上的 .env、SQLite 数据库、用户数据和备份。更新后如果需要立即重启：
 
 ~~~bash
+sudo systemctl restart leaf-blog
+~~~
+
+如果使用 1Panel 反向代理，更新时也要保留 --no-nginx：
+
+~~~bash
+sudo bash deploy.sh --domain blog.example.com --no-nginx
 sudo systemctl restart leaf-blog
 ~~~
 
@@ -214,6 +258,17 @@ sudo chmod 600 /srv/leaf-blog/.env
 sudo chown leaf:leaf /srv/leaf-blog/.env
 ~~~
 
+## 安全上传更新
+
+项目提供了 upload-updates.sh，只会上传公开的部署文档和脚本，不会执行 git add .。在项目根目录执行：
+
+~~~bash
+chmod +x upload-updates.sh
+bash upload-updates.sh
+~~~
+
+脚本会检查暂存文件范围、隐私路径和常见密钥格式。首次使用时，如果 Git 尚未设置提交作者信息，脚本会提示填写；邮箱建议使用 GitHub 的 noreply 地址。
+
 ## 本地运行
 
 需要 Node.js 22 或更高版本：
@@ -231,10 +286,18 @@ http://127.0.0.1:3000
 
 本地开发可以使用项目根目录的 .env.example 作为配置参考。不要把真实密码、SMTP 授权码或数据库文件复制到 GitHub。
 
+Windows 本地启动脚本也支持设置端口：
+
+~~~powershell
+.\start-blog.ps1 -Port 9000
+.\stop-blog.ps1 -Port 9000
+~~~
+
 ## 相关文档
 
 - [完整服务器部署教程](./DEPLOY.md)
 - [一键部署脚本](./deploy.sh)
+- [安全上传更新脚本](./upload-updates.sh)
 - [环境变量示例](./.env.example)
 
 ## License

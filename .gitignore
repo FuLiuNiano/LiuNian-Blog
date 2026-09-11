@@ -1,0 +1,17 @@
+.env
+.tmp-*
+node_modules/
+backups/
+.run/
+logs/
+server.log
+server-error.log
+data/*.db
+data/*.db-*
+data/users.json
+data/comments.json
+data/guestbook.json
+data/journals.json
+data/state.json
+data/site.json
+public/uploads/

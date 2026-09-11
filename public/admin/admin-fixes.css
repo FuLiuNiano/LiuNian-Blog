@@ -1,0 +1,82 @@
+.writing {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.preview {
+  height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.settings-form { display: grid; gap: 16px; max-width: 980px; }
+.topbar-actions { display: flex; align-items: center; gap: 9px; }
+.secondary { border: 1px solid var(--green); border-radius: 4px; background: transparent; color: var(--green); padding: 10px 14px; font-weight: 700; }
+.secondary:hover { background: #e8f3ed; }
+.settings-group { background: #fff; border: 1px solid var(--line); padding: 22px; }
+.settings-group h2 { margin: 0 0 18px; font-size: 17px; }
+.settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+.settings-grid .wide { grid-column: 1 / -1; }
+.settings-actions { display: flex; justify-content: space-between; align-items: center; }
+@media (max-width: 650px) { .settings-grid { grid-template-columns: 1fr; } .settings-grid .wide { grid-column: auto; } }
+
+.login-shell {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  background: url('/img/leaf-hero-v2.png?v=1') center / cover no-repeat;
+}
+.login-shell::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(135deg, rgba(12,35,22,.3), rgba(232,244,235,.55));
+  backdrop-filter: blur(3px);
+}
+.login-box {
+  border-radius: 20px;
+  border-color: rgba(255,255,255,.68);
+  background: rgba(255,255,255,.84);
+  backdrop-filter: blur(20px) saturate(1.2);
+}
+.login-back { display: block; margin-top: 15px; color: var(--green); text-align: center; font-size: 13px; text-decoration: none; }
+.login-back:hover { color: var(--green2); }
+
+.user-table-wrap table { min-width: 720px; }
+.user-avatar { width: 38px; height: 38px; border-radius: 12px; object-fit: cover; display: block; border: 1px solid var(--line); background: #f4f6f5; }
+
+.toggle-field { display: flex; align-items: center; gap: 9px; min-height: 44px; padding: 10px 12px; border: 1px solid var(--line); background: #fbfcfb; }
+.toggle-field input { width: auto; margin: 0; accent-color: var(--green); }
+.dashboard-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.chart-card { background: var(--paper); border: 1px solid var(--line); padding: 22px; min-height: 310px; }
+.chart-card header { display: flex; justify-content: space-between; align-items: end; gap: 12px; margin-bottom: 22px; }
+.chart-card .eyebrow { margin: 0 0 5px; }
+.chart-card h2 { margin: 0; font-size: 17px; }
+.chart-note { color: var(--muted); font-size: 12px; white-space: nowrap; }
+.bar-chart { display: grid; gap: 14px; }
+.bar-row { display: grid; grid-template-columns: minmax(90px, 1.1fr) 2fr 36px; gap: 10px; align-items: center; font-size: 12px; }
+.bar-row > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #59636b; }
+.bar-row > b { text-align: right; font: 700 12px Georgia, serif; }
+.bar-track { height: 10px; background: #edf2ee; border-radius: 999px; overflow: hidden; }
+.bar-track i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #287a59, #75c69b); }
+.bar-track.likes i { background: linear-gradient(90deg, #ff8a5c, #ff6b81); }
+.chart-empty { padding: 50px 12px; text-align: center; color: var(--muted); font-size: 13px; line-height: 1.7; }
+.visual-editor { position: relative; outline: none; }
+.visual-editor:empty::before { content: '点击这里直接开始写作…'; color: var(--muted); pointer-events: none; }
+.visual-editor:focus { background: linear-gradient(180deg, rgba(40,122,89,.025), transparent 120px); }
+.visual-editor img { cursor: pointer; }
+.stats { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.journal-admin-intro { margin-bottom: 14px; padding: 14px 16px; background: #eef6f0; border: 1px solid #dcebe0; color: var(--muted); font-size: 13px; line-height: 1.7; }
+.journal-admin-list { display: grid; gap: 12px; }
+.journal-admin-card { background: var(--paper); border: 1px solid var(--line); padding: 18px 20px; }
+.journal-admin-card time { color: var(--muted); font-size: 12px; }
+.journal-admin-card p { margin: 10px 0 12px; line-height: 1.8; white-space: pre-wrap; overflow-wrap: anywhere; }
+.journal-admin-card .actions { border-top: 1px solid #edf0ee; padding-top: 8px; }
+.editor-grid.journal-only { grid-template-columns: 1fr; }
+.editor-grid.journal-only .writing { min-width: 0; }
+@media (max-width: 900px) { .stats { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 560px) { .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 850px) { .dashboard-grid { grid-template-columns: 1fr; } }
+@media (max-width: 560px) { .bar-row { grid-template-columns: 80px 1fr 28px; gap: 7px; } .chart-card { padding: 16px; } }

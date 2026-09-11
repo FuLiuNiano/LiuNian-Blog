@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>博客管理 · LiuNian</title>
+  <link rel="icon" href="/favicon.svg">
+  <link rel="stylesheet" href="/fonts/wk-r.css">
+  <link rel="stylesheet" href="/admin/admin.css?v=1">
+  <link rel="stylesheet" href="/admin/admin-fixes.css?v=4">
+</head>
+<body>
+  <div id="login" class="login-shell">
+    <form id="login-form" class="login-box">
+      <div class="brand-mark">L</div>
+      <p class="eyebrow">LIUNIAN BLOG</p>
+      <h1>内容管理后台</h1>
+      <p class="muted">请先登录博主账号，再输入后台密码。<a class="login-back" href="/login">先去登录博主账号</a></p>
+      <label>管理密码<input id="password" type="password" autocomplete="current-password" required autofocus></label>
+      <button class="primary" type="submit">进入后台</button>
+      <a class="login-back" href="/">← 返回博客首页</a>
+      <p id="login-error" class="error"></p>
+    </form>
+  </div>
+
+  <div id="app" class="app hidden">
+    <aside class="sidebar">
+      <a class="brand" href="/" target="_blank"><span class="brand-mark small">L</span><span>LiuNian<br><small>内容管理</small></span></a>
+      <nav>
+        <button class="nav-item active" data-view="dashboard"><span>⌂</span>仪表盘</button>
+        <button class="nav-item" data-view="posts"><span>▤</span>文章管理</button>
+        <button class="nav-item" data-view="journals"><span>✦</span>随笔管理</button>
+        <button class="nav-item" data-view="comments"><span>◫</span>留言管理</button>
+        <button class="nav-item" data-view="users"><span>♙</span>用户管理</button>
+        <button class="nav-item" data-view="settings"><span>⚙</span>站点设置</button>
+      </nav>
+      <div class="side-bottom">
+        <a href="/" target="_blank">↗ 查看博客</a>
+        <button id="logout">退出登录</button>
+      </div>
+    </aside>
+
+    <main>
+      <header class="topbar">
+        <div><p class="eyebrow">CONTENT STUDIO</p><h1 id="page-title">文章管理</h1></div>
+        <div class="topbar-actions"><button id="new-journal" class="secondary"><span>✦</span>新建随笔</button><button id="new-post" class="primary"><span>＋</span>新建文章</button></div>
+      </header>
+
+      <section id="dashboard-view" class="hidden">
+        <section id="stats" class="stats"></section>
+        <div class="dashboard-grid">
+          <article class="chart-card"><header><div><p class="eyebrow">CONTENT PERFORMANCE</p><h2>文章阅读量排行</h2></div><span class="chart-note">按累计阅读量</span></header><div id="views-chart" class="bar-chart"></div></article>
+          <article class="chart-card"><header><div><p class="eyebrow">ENGAGEMENT</p><h2>点赞表现</h2></div><span class="chart-note">阅读 / 点赞</span></header><div id="likes-chart" class="bar-chart"></div></article>
+        </div>
+      </section>
+      <section id="posts-view">
+        <div class="toolbar"><input id="search" type="search" placeholder="搜索标题、分类或标签"><select id="filter"><option value="all">全部文章</option><option value="published">已发布</option><option value="draft">草稿</option><option value="pinned">已置顶</option></select></div>
+        <div class="table-wrap"><table><thead><tr><th>文章</th><th>状态</th><th>分类</th><th>日期</th><th>数据</th><th></th></tr></thead><tbody id="post-list"></tbody></table><div id="post-empty" class="empty hidden">还没有符合条件的文章</div></div>
+      </section>
+      <section id="journals-view" class="hidden">
+        <div class="journal-admin-intro">随笔不需要标题，想到什么就直接写一段；支持图片、格式和评论。</div>
+        <div id="journal-list" class="journal-admin-list"></div>
+      </section>
+      <section id="comments-view" class="hidden"><div id="comment-list" class="comment-list"></div></section>
+      <section id="users-view" class="hidden">
+        <div class="table-wrap user-table-wrap"><table><thead><tr><th>头像</th><th>邮箱</th><th>用户名</th><th>注册时间</th><th>最近登录</th><th></th></tr></thead><tbody id="user-list"></tbody></table><div id="user-empty" class="empty hidden">还没有注册用户</div></div>
+      </section>
+      <section id="settings-view" class="hidden">
+        <form id="site-form" class="settings-form">
+          <div class="settings-group"><h2>基本信息</h2><div class="settings-grid">
+            <label>博客名称<input name="title" required></label><label>英文名称<input name="en"></label>
+            <label>首页标语<input name="subtitle"></label><label>站点简介<input name="description"></label>
+            <label>入场页标题<input name="introTitle" placeholder="欢迎来到我的博客"></label><label>入场页提示<input name="introText" placeholder="向下滚动开始阅读"></label>
+            <label class="wide">首页背景图（轮换关闭时使用）<input name="heroImage" placeholder="/img/leaf-hero-v2.png?v=1"></label>
+            <label class="wide">Logo 地址（为空时使用头像）<input name="logo" placeholder="/img/avatar.svg 或 https://..."></label>
+            <label>头像地址<input name="avatar"></label><label>建站日期<input name="since" type="date"></label>
+            <label class="toggle-field"><input name="heroRotation" type="checkbox"> 每次打开轮换首页图片</label>
+            <label class="wide">轮换图片（每行：分类 | 名称 | 图片地址）<textarea name="heroImages" rows="7" placeholder="二次元 | 樱花春景 | https://..."></textarea></label>
+            <label class="toggle-field"><input name="journalEnabled" type="checkbox"> 显示“随笔”栏目</label>
+            <label>随笔栏目名称<input name="journalName" placeholder="随笔"></label>
+            <label class="wide">随笔栏目介绍<input name="journalDescription" placeholder="记录生活、灵感和那些不想忘记的小事。"></label>
+          </div></div>
+          <div class="settings-group"><h2>关于站长</h2><div class="settings-grid">
+            <label>作者名称<input name="authorName"></label><label>身份说明<input name="authorRole"></label>
+            <label class="wide">关于正文<textarea name="about" rows="6"></textarea></label>
+            <label>博主账号标识<input name="authorAccount" placeholder="例如：你的 QQ 号"></label>
+            <label class="wide">技能标签<input name="skills" placeholder="使用逗号分隔"></label>
+            <label class="wide">站点时间线<textarea name="timeline" rows="5" placeholder="每行一项：日期 | 内容"></textarea></label>
+          </div></div>
+          <div class="settings-group"><h2>氛围特效与打赏</h2><div class="settings-grid">
+            <label class="toggle-field"><input name="effectSakura" type="checkbox"> 开启樱花飘落</label>
+            <label class="toggle-field"><input name="effectLanterns" type="checkbox"> 开启顶部灯笼</label>
+            <label class="toggle-field"><input name="donationEnabled" type="checkbox"> 开启打赏卡片</label>
+            <label>打赏二维码地址<input name="donationQr" placeholder="/img/donation-qr.png 或 https://..."></label>
+            <label class="wide">打赏文案<input name="donationText" placeholder="如果文章对你有帮助，欢迎请我喝杯咖啡 ☕"></label>
+          </div></div>
+          <div class="settings-group"><h2>链接与音乐</h2><div class="settings-grid">
+            <label>GitHub 地址<input name="github"></label><label>邮箱<input name="email" type="email"></label>
+            <label>音乐名称<input name="musicTitle"></label><label>音频地址<input name="musicUrl" placeholder="/music/song.mp3 或 https://..."></label>
+            <label class="wide">页脚文字<input name="footer"></label>
+            <label class="wide">友情链接（每行：名称 | 地址 | 简介）<textarea name="friendLinks" rows="6" placeholder="朋友的博客 | https://example.com | 他的个人博客"></textarea></label>
+          </div></div>
+          <div class="settings-actions"><span id="site-status" class="muted"></span><button class="primary" type="submit">保存站点设置</button></div>
+        </form>
+      </section>
+    </main>
+  </div>
+
+  <div id="editor-mask" class="editor-mask hidden">
+    <section class="editor-panel">
+      <header><div><p class="eyebrow">ARTICLE EDITOR</p><h2 id="editor-title">新建文章</h2></div><button id="close-editor" class="icon-button" title="关闭">×</button></header>
+      <form id="post-form">
+        <div class="editor-grid">
+          <div class="fields" id="article-fields">
+            <label class="title-field">标题<input name="title" maxlength="120" required placeholder="输入文章标题"></label>
+            <div class="two"><label>文章路径<input name="slug" required placeholder="例如 my-first-post"></label><label>发布日期<input name="date" type="date" required></label></div>
+            <div class="two"><label>分类<input name="category" placeholder="技术教程"></label><label>阅读时间（分钟）<input name="minutes" type="number" min="1" max="999" value="5"></label></div>
+            <label>标签<input name="tags" placeholder="多个标签使用逗号分隔"></label>
+            <label>摘要<textarea name="excerpt" rows="3" maxlength="300" placeholder="显示在文章卡片上的简介"></textarea></label>
+            <label>封面地址<input name="cover" placeholder="/covers/theme.svg?v=g1"></label>
+            <div class="checks"><label><input name="published" type="checkbox" checked> 发布文章</label><label><input name="pinned" type="checkbox"> 首页置顶</label></div>
+          </div>
+          <div class="writing">
+            <div class="tabs"><button type="button" class="tab active" data-tab="preview">可视化编辑</button><button type="button" class="tab" data-tab="write">Markdown 源码</button><span id="word-count">0 字</span></div>
+            <textarea id="content" class="hidden" name="content" spellcheck="false" placeholder="# 从这里开始写作…"></textarea>
+            <article id="preview" class="preview visual-editor" contenteditable="true" spellcheck="true"></article>
+          </div>
+        </div>
+        <footer><span id="save-status" class="muted"></span><div><button type="button" id="cancel-editor" class="ghost">取消</button><button id="save-editor" type="submit" class="primary">保存文章</button></div></footer>
+      </form>
+    </section>
+  </div>
+  <div id="toast" class="toast hidden"></div>
+  <script src="/admin/admin.js?v=8"></script>
+</body>
+</html>

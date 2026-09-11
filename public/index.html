@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LiuNianのBlog</title>
+  <meta name="description" content="写代码，玩游戏，记录生活的安静角落。">
+  <link rel="icon" href="/favicon.svg">
+  <link rel="stylesheet" href="/fonts/wk-r.css">
+  <link rel="stylesheet" href="/fonts/wk-b.css">
+  <link rel="stylesheet" href="/css/style.css?v=g8">
+  <script src="/js/theme-init.js?v=1"></script>
+</head>
+<body>
+  <div class="bg-stage">
+    <div class="bg-orb o1"></div>
+    <div class="bg-orb o2"></div>
+    <div class="bg-orb o3"></div>
+    <div class="bg-orb o4"></div>
+  </div>
+  <div id="site-effects" aria-hidden="true"></div>
+
+  <div class="progress-bar" id="progress"></div>
+  <div class="loader" id="loader" aria-label="网站入场页">
+    <div class="loader__content">
+      <div class="loader__eyebrow">WELCOME TO</div>
+      <div class="loader__name" data-intro-title>LiuNianのBlog</div>
+      <div class="loader__text" data-intro-text>向下滚动，进入我的像素森林</div>
+      <div class="loader__hint">↓ 向下滚动开始</div>
+    </div>
+  </div>
+
+  <header class="navbar" id="navbar"></header>
+
+  <div id="view" style="min-height:100vh"></div>
+
+  <footer class="site-footer">
+    <div><span id="footer-title">LiuNianのBlog</span> · <span id="footer-text">落叶生根，字句成林</span></div>
+    <div id="footer-links" class="friend-links hidden" aria-label="友情链接"></div>
+    <div style="margin-top:4px">由 0 依赖 Node.js 驱动 · <a href="/api/posts" target="_blank">API</a> 开放中</div>
+  </footer>
+
+  <div class="float-btns" id="float-btns"></div>
+  <div class="search-mask" id="search-mask"></div>
+  <div class="toast-zone"></div>
+
+  <script src="/js/app.js?v=g21"></script>
+</body>
+</html>

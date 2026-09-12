@@ -122,7 +122,9 @@ fi
 BLOG_GROUP="$(id -gn "$BLOG_USER")"
 
 systemctl stop leaf-blog.service >/dev/null 2>&1 || true
-install -d -o "$BLOG_USER" -g "$BLOG_GROUP" "$BLOG_APP_DIR" "$BLOG_STATE_DIR" "$BLOG_BACKUP_DIR"
+install -d -o "$BLOG_USER" -g "$BLOG_GROUP" \
+  "$BLOG_APP_DIR" "$BLOG_APP_DIR/data" "$BLOG_APP_DIR/data/content" \
+  "$BLOG_STATE_DIR" "$BLOG_BACKUP_DIR"
 if [[ "$BLOG_SOURCE_DIR" != "$BLOG_APP_DIR" ]]; then
   rsync -a \
     --exclude '.env' --exclude 'node_modules/' --exclude '.run/' --exclude 'logs/' --exclude 'backups/' \
@@ -172,6 +174,7 @@ HOT_TOPICS_ENABLED=true
 HOT_TOPICS_LIMIT=10
 HOT_TOPICS_REFRESH_HOUR=7
 HOT_TOPICS_REFRESH_MINUTE=0
+HOT_TOPICS_RETRY_MINUTES=30
 SMTP_HOST=smtp.qq.com
 SMTP_PORT=465
 SMTP_SECURE=true

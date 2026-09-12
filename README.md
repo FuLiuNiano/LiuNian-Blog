@@ -138,9 +138,9 @@ Node 服务默认只监听 127.0.0.1:8080，也可以用 --port NUMBER 改成其
 
 ## 每日热点
 
-首页左侧的“内容分类”可以切换“我的博客”和“每日热点”。每日热点中分为“科技热点”和“游戏热点”，服务器按上海时间每天 07:00 自动抓取 RSS 新闻源，并将今天和昨天的标题、来源、时间和原文链接保存到 SQLite；更早的数据会自动清理，外部来源暂时不可用时会继续显示上一次成功的数据。
+首页左侧的“内容分类”可以切换“我的博客”和“每日热点”。每日热点分为“科技热点”“游戏热点”“GitHub 热点”和“娱乐热点”，服务器按上海时间每天 07:00 自动抓取，并将今天和昨天的标题、来源、时间和原文链接保存到 SQLite；更早的数据会自动清理，外部来源暂时不可用时会继续显示上一次成功的数据。
 
-默认使用科技、人工智能新闻，以及 RSSHub 提供的小黑盒游戏新闻和游戏折扣来源。RSSHub 文档列出了小黑盒的 `xiaoheihe/news` 和 `xiaoheihe/discount/pc` 路由；可以在服务器的 `.env` 中调整刷新时间和来源：
+默认来源如下：科技使用 Ars Technica、TechCrunch、The Verge、MIT Technology Review 和 Wired 的公开 RSS，并按原文发布时间优先；游戏优先使用 RSSHub 的小黑盒游戏新闻/折扣路由，同时准备 RSSHub 备用实例和 IGN、Steam、GameSpot 补位；GitHub 使用官方公开 API 查找近 3 天新建且已有关注度的项目；娱乐使用微博、抖音热搜 RSS 路由及备用实例。RSSHub 文档列出了小黑盒、GitHub Trending、微博热搜和抖音热搜路由，可以在服务器的 `.env` 中调整刷新时间和来源：
 
 ~~~dotenv
 HOT_TOPICS_ENABLED=true
@@ -148,7 +148,11 @@ HOT_TOPICS_ENABLED=true
 HOT_TOPICS_LIMIT=10
 HOT_TOPICS_REFRESH_HOUR=7
 HOT_TOPICS_REFRESH_MINUTE=0
-# HOT_TOPICS_FEEDS=https://example.com/news.xml,https://example.com/tech.xml
+HOT_TOPICS_RETRY_MINUTES=30
+# 可选：GitHub API Token；不填也能运行，但匿名 API 额度较低
+# GITHUB_TOKEN=
+# 自定义来源格式：分类|URL，多个来源用英文逗号分隔
+# HOT_TOPICS_FEEDS=game|https://example.com/game.xml,tech|https://example.com/tech.xml
 ~~~
 
 只建议使用允许公开访问的官方 RSS 或授权新闻 API，不要把需要登录的账号信息写进代码或提交到 GitHub。修改 `.env` 后重启博客：

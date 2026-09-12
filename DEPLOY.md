@@ -187,10 +187,14 @@ HOT_TOPICS_ENABLED=true
 HOT_TOPICS_LIMIT=10
 HOT_TOPICS_REFRESH_HOUR=7
 HOT_TOPICS_REFRESH_MINUTE=0
-# HOT_TOPICS_FEEDS=https://example.com/news.xml,https://example.com/tech.xml
+HOT_TOPICS_RETRY_MINUTES=30
+# 可选：GitHub API Token；不填也能运行，但匿名 API 额度较低
+# GITHUB_TOKEN=
+# 自定义来源格式：分类|URL，多个来源用英文逗号分隔
+# HOT_TOPICS_FEEDS=game|https://example.com/game.xml,tech|https://example.com/tech.xml
 ```
 
-首页左侧的“内容分类”可以切换“我的博客”和“每日热点”；每日热点分为科技热点和游戏热点，并保留今天、昨天两天的数据。默认按上海时间 07:00 自动抓取 RSS 并缓存到 SQLite，更早的数据会自动清理。修改上述配置后重启 `leaf-blog` 服务即可。
+首页左侧的“内容分类”可以切换“我的博客”和“每日热点”；每日热点分为科技、游戏、GitHub 和娱乐四类，并保留今天、昨天两天的数据。默认按上海时间 07:00 自动抓取并缓存到 SQLite，更早的数据会自动清理。科技按原文发布时间优先，GitHub 使用官方公开 API；小黑盒、微博和抖音来源均准备了备用实例。修改上述配置后重启 `leaf-blog` 服务即可。
 
 验证码邮件配置按实际邮箱填写：
 

@@ -24,6 +24,7 @@ BRANCH="$(git branch --show-current)"
 [[ -n "$BRANCH" ]] || die "无法确定当前 Git 分支"
 
 FILES=(
+  .env.example
   README.md
   DEPLOY.md
   deploy.sh
@@ -64,12 +65,19 @@ git add -- "${FILES[@]}"
 STAGED_FILES="$(git diff --cached --name-only)"
 check_staged_scope "$STAGED_FILES"
 
+# .env.example 只能保留固定占位符；真实 .env 仍然不在允许列表中。
+if [[ -f .env.example ]]; then
+  sed 's/\r$//' .env.example | grep -Fxq 'ADMIN_PASSWORD=change_to_a_long_random_password' || die '.env.example 中的 ADMIN_PASSWORD 不是占位符'
+  sed 's/\r$//' .env.example | grep -Fxq 'SMTP_PASS=your_qq_smtp_authorization_code' || die '.env.example 中的 SMTP_PASS 不是占位符'
+  sed 's/\r$//' .env.example | grep -Fxq 'OTP_HASH_SECRET=change_to_at_least_32_random_characters' || die '.env.example 中的 OTP_HASH_SECRET 不是占位符'
+fi
+
 # 这些路径和敏感内容不允许进入本次提交。
 if printf '%s\n' "$STAGED_FILES" | grep -Eq '(^|/)(\.env|data/(leaf-blog\.db|leaf-blog\.db-(wal|shm)|users\.json|comments\.json|guestbook\.json|journals\.json|state\.json|site\.json)|backups|logs|public/uploads)(/|$)'; then
   die "暂存区包含隐私文件，已停止上传"
 fi
 
-if git diff --cached | grep -Eiq -- '-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----|AWS_SECRET_ACCESS_KEY=|SMTP_PASS=[^$[:space:]]+|ADMIN_PASSWORD=[^$[:space:]]+'; then
+if git diff --cached -- . ':(exclude).env.example' | grep -Eiq -- '-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----|AWS_SECRET_ACCESS_KEY=|SMTP_PASS=[^$[:space:]]+|ADMIN_PASSWORD=[^$[:space:]]+'; then
   die "暂存内容疑似包含密钥或真实密码，已停止上传"
 fi
 

@@ -553,6 +553,8 @@ views.home = async (el) => {
     const groups = [
       { key: 'tech', label: '科技热点', icon: ICO.list, items: day.categories?.tech || [] },
       { key: 'game', label: '游戏热点', icon: ICO.hot, items: day.categories?.game || [] },
+      { key: 'github', label: 'GitHub 热点', icon: ICO.github, items: day.categories?.github || [] },
+      { key: 'entertainment', label: '娱乐热点', icon: ICO.message, items: day.categories?.entertainment || [] },
     ];
     hotList.innerHTML = `
       <div class="hot-topics__summary glass">

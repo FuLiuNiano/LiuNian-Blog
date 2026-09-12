@@ -140,7 +140,7 @@ Node 服务默认只监听 127.0.0.1:8080，也可以用 --port NUMBER 改成其
 
 首页左侧的“内容分类”可以切换“我的博客”和“每日热点”。每日热点分为“科技热点”“游戏热点”“GitHub 热点”和“娱乐热点”，服务器按上海时间每天 07:00 自动抓取，并将今天和昨天的标题、来源、时间和原文链接保存到 SQLite；更早的数据会自动清理，外部来源暂时不可用时会继续显示上一次成功的数据。
 
-默认来源如下：科技使用 Ars Technica、TechCrunch、The Verge、MIT Technology Review 和 Wired 的公开 RSS，并按原文发布时间优先；游戏优先使用 RSSHub 的小黑盒游戏新闻/折扣路由，同时准备 RSSHub 备用实例和 IGN、Steam、GameSpot 补位；GitHub 使用官方公开 API 查找近 3 天新建且已有关注度的项目；娱乐使用微博、抖音热搜 RSS 路由及备用实例。RSSHub 文档列出了小黑盒、GitHub Trending、微博热搜和抖音热搜路由，可以在服务器的 `.env` 中调整刷新时间和来源：
+默认来源如下：科技使用 Ars Technica、TechCrunch、The Verge、MIT Technology Review 和 Wired 的公开 RSS，并按原文发布时间优先；游戏优先使用小黑盒官网公开信息流，RSSHub 的小黑盒路由作为备用，只有这些来源暂时不可用时才用 GameSpot、Steam 补位；GitHub 使用官方公开 API 查找近 3 天新建且已有关注度的项目；娱乐优先使用抖音官网公开热搜接口，同时保留微博热搜和 RSS 备用实例，并会尽量同时保留两个平台的内容。英文标题会自动翻译为中文，原文链接保持不变。RSSHub 文档列出了小黑盒、GitHub Trending、微博热搜和抖音热搜路由，可以在服务器的 `.env` 中调整刷新时间和来源：
 
 ~~~dotenv
 HOT_TOPICS_ENABLED=true
@@ -149,6 +149,9 @@ HOT_TOPICS_LIMIT=10
 HOT_TOPICS_REFRESH_HOUR=7
 HOT_TOPICS_REFRESH_MINUTE=0
 HOT_TOPICS_RETRY_MINUTES=30
+# 英文标题自动翻译为中文；翻译服务不可用时保留英文原文
+HOT_TOPICS_TRANSLATION_ENABLED=true
+# HOT_TOPICS_TRANSLATION_MAX_ITEMS=40
 # 可选：GitHub API Token；不填也能运行，但匿名 API 额度较低
 # GITHUB_TOKEN=
 # 自定义来源格式：分类|URL，多个来源用英文逗号分隔

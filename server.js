@@ -83,7 +83,8 @@ const HOT_TOPICS_REFRESH_HOUR = Number.isInteger(Number(process.env.HOT_TOPICS_R
 const HOT_TOPICS_REFRESH_MINUTE = Number.isInteger(Number(process.env.HOT_TOPICS_REFRESH_MINUTE))
   ? Math.min(Math.max(Number(process.env.HOT_TOPICS_REFRESH_MINUTE), 0), 59) : 0;
 const HOT_TOPICS_RETRY_MINUTES = envLimit('HOT_TOPICS_RETRY_MINUTES', 30, 1440);
-const HOT_TOPICS_DATA_VERSION = 2;
+// 来源和翻译逻辑升级后强制重新抓取一次，避免继续使用旧分类缓存。
+const HOT_TOPICS_DATA_VERSION = 3;
 const HOT_TOPICS_FEEDS = String(process.env.HOT_TOPICS_FEEDS || '')
   .split(/\s*,\s*/).map((url) => url.trim()).filter(Boolean);
 

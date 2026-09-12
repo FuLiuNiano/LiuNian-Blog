@@ -19,7 +19,7 @@ const {
   sessionCookie, sharedDelete, sharedGet, sharedSet, sharedSetIfAbsent, userSessionCookie, verifyCsrfToken,
 } = require('./lib/security');
 const { writeTextAtomic } = require('./lib/storage');
-const { DEFAULT_FEEDS, fetchHotTopics } = require('./lib/hot-topics');
+const { DEFAULT_FEEDS, HOT_TOPIC_CATEGORIES, fetchHotTopics } = require('./lib/hot-topics');
 
 const ROOT = __dirname;
 function loadEnvFile() {
@@ -82,6 +82,8 @@ const HOT_TOPICS_REFRESH_HOUR = Number.isInteger(Number(process.env.HOT_TOPICS_R
   ? Math.min(Math.max(Number(process.env.HOT_TOPICS_REFRESH_HOUR), 0), 23) : 7;
 const HOT_TOPICS_REFRESH_MINUTE = Number.isInteger(Number(process.env.HOT_TOPICS_REFRESH_MINUTE))
   ? Math.min(Math.max(Number(process.env.HOT_TOPICS_REFRESH_MINUTE), 0), 59) : 0;
+const HOT_TOPICS_RETRY_MINUTES = envLimit('HOT_TOPICS_RETRY_MINUTES', 30, 1440);
+const HOT_TOPICS_DATA_VERSION = 2;
 const HOT_TOPICS_FEEDS = String(process.env.HOT_TOPICS_FEEDS || '')
   .split(/\s*,\s*/).map((url) => url.trim()).filter(Boolean);
 
@@ -233,7 +235,7 @@ function shiftShanghaiDate(dateKey, days) {
 }
 
 function emptyHotTopicCategories() {
-  return { tech: [], game: [] };
+  return Object.fromEntries(HOT_TOPIC_CATEGORIES.map((category) => [category, []]));
 }
 
 function normalizeHotTopicItem(item) {
@@ -260,7 +262,7 @@ function normalizeHotTopicDay(value) {
     }
   } else if (Array.isArray(value?.items)) {
     for (const item of value.items) {
-      const category = item?.category === 'game' ? 'game' : 'tech';
+      const category = HOT_TOPIC_CATEGORIES.includes(item?.category) ? item.category : 'tech';
       const normalized = normalizeHotTopicItem(item);
       if (normalized.title && normalized.url && categories[category].length < HOT_TOPICS_LIMIT) categories[category].push(normalized);
     }
@@ -276,6 +278,14 @@ function hotTopicDayCount(day) {
   return Object.values(day?.categories || {}).reduce((total, items) => total + (Array.isArray(items) ? items.length : 0), 0);
 }
 
+function hotTopicDayNeedsRefresh(day, today) {
+  if (!day || day.date !== today || hotTopicDayCount(day) === 0) return true;
+  const complete = HOT_TOPIC_CATEGORIES.every((category) => Array.isArray(day.categories?.[category]) && day.categories[category].length > 0);
+  if (complete) return false;
+  const updatedAt = Date.parse(day.updatedAt || '');
+  return Number.isNaN(updatedAt) || Date.now() - updatedAt >= HOT_TOPICS_RETRY_MINUTES * 60 * 1000;
+}
+
 function normalizeHotTopics(value) {
   const candidates = Array.isArray(value?.days) ? value.days : (value?.date ? [value] : []);
   const yesterday = shiftShanghaiDate(shanghaiDateKey(), -1);
@@ -284,21 +294,23 @@ function normalizeHotTopics(value) {
     .filter((day) => day.date && day.date >= yesterday && !seen.has(day.date) && seen.add(day.date))
     .sort((a, b) => b.date.localeCompare(a.date))
     .slice(0, 2);
-  return { days };
+  return { version: HOT_TOPICS_DATA_VERSION, days };
 }
 
 const savedHotTopics = readDatabase('hot-topics', { days: [] });
 let hotTopics = normalizeHotTopics(savedHotTopics);
+let hotTopicsRefreshRequired = Number(savedHotTopics?.version || 0) < HOT_TOPICS_DATA_VERSION;
 if (JSON.stringify(savedHotTopics) !== JSON.stringify(hotTopics)) writeDatabase('hot-topics', hotTopics);
 let hotTopicsRefreshPromise = null;
 
 async function refreshHotTopics({ force = false } = {}) {
   if (!HOT_TOPICS_ENABLED) return hotTopics;
   const today = shanghaiDateKey();
-  if (!force && hotTopics.days.some((day) => day.date === today && hotTopicDayCount(day))) return hotTopics;
+  const todayDay = hotTopics.days.find((day) => day.date === today);
+  if (!force && !hotTopicsRefreshRequired && !hotTopicDayNeedsRefresh(todayDay, today)) return hotTopics;
   if (hotTopicsRefreshPromise) return hotTopicsRefreshPromise;
   hotTopicsRefreshPromise = (async () => {
-    const lock = await sharedSetIfAbsent('hot-topics-refresh', today, { at: Date.now() }, 15 * 60 * 1000);
+    const lock = await sharedSetIfAbsent(`hot-topics-refresh-v${HOT_TOPICS_DATA_VERSION}`, today, { at: Date.now() }, 15 * 60 * 1000);
     if (!lock) return hotTopics;
     try {
       const items = await fetchHotTopics({
@@ -306,7 +318,18 @@ async function refreshHotTopics({ force = false } = {}) {
         limit: HOT_TOPICS_LIMIT,
       });
       const categories = emptyHotTopicCategories();
-      for (const item of items) categories[item.category === 'game' ? 'game' : 'tech'].push(item);
+      for (const item of items) {
+        const category = HOT_TOPIC_CATEGORIES.includes(item.category) ? item.category : 'tech';
+        if (categories[category].length < HOT_TOPICS_LIMIT) categories[category].push(item);
+      }
+      // 某一个外部来源暂时失败时，保留当天该分类上一次成功的数据。
+      const previousToday = hotTopics.days.find((day) => day.date === today);
+      for (const category of HOT_TOPIC_CATEGORIES) {
+        if (!categories[category].length && previousToday?.categories?.[category]?.length) {
+          categories[category] = previousToday.categories[category].slice(0, HOT_TOPICS_LIMIT);
+        }
+      }
+      hotTopicsRefreshRequired = false;
       const yesterday = shiftShanghaiDate(today, -1);
       hotTopics = {
         days: [{ date: today, updatedAt: new Date().toISOString(), categories },
@@ -347,7 +370,7 @@ function hotTopicsForClient() {
     stale: Boolean(current && current.date !== today),
     days,
     categories,
-    items: [...categories.tech, ...categories.game],
+    items: HOT_TOPIC_CATEGORIES.flatMap((category) => categories[category]),
   };
 }
 
@@ -844,7 +867,7 @@ async function handleApi(req, res, pathname, query) {
   if (pathname === '/api/hot-topics' && method === 'GET') {
     if (!HOT_TOPICS_ENABLED) return sendJson(res, 200, hotTopicsForClient());
     const today = shanghaiDateKey();
-    if (!hotTopics.days.some((day) => day.date === today && hotTopicDayCount(day))) await refreshHotTopics();
+    if (hotTopicsRefreshRequired || hotTopicDayNeedsRefresh(hotTopics.days.find((day) => day.date === today), today)) await refreshHotTopics();
     return sendJson(res, 200, hotTopicsForClient());
   }
 

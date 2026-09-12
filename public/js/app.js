@@ -61,6 +61,7 @@ const ICO = {
   tag: I('<path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.83z"/><circle cx="7" cy="7" r="1.6"/>'),
   clock: I('<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>'),
   folder: I('<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>'),
+  hot: I('<path d="M12 22c4.4 0 7-2.8 7-6.7 0-3.1-1.7-5.5-4.6-8.3.1 2.1-.6 3.5-1.9 4.3.1-3.8-1.7-6.8-4.3-8.8.1 3.2-3.2 5.8-3.2 10.2C5 18.9 7.7 22 12 22z"/>'),
   mail: I('<path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/>'),
   message: I('<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>'),
   user: I('<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>'),
@@ -87,6 +88,7 @@ const ICO = {
 const state = {
   site: null,
   posts: [],
+  hotTopics: null,
   heroImage: null,
   viewer: null,
   dark: localStorage.getItem('leaf-dark') === '1',
@@ -422,6 +424,13 @@ const views = {};
 function sidebarHtml(stats) {
   return `
   <aside class="sidebar">
+    <div class="glass content-switcher reveal">
+      <div class="content-switcher__label">${ICO.list}<span>内容分类</span></div>
+      <div class="content-switcher__buttons" role="tablist" aria-label="主页内容分类">
+        <button class="content-switcher__btn active" type="button" role="tab" aria-selected="true" data-home-mode="blog">${ICO.bookmark}<span>我的博客</span></button>
+        <button class="content-switcher__btn" type="button" role="tab" aria-selected="false" data-home-mode="hot">${ICO.hot}<span>每日热点</span></button>
+      </div>
+    </div>
     <div class="glass profile-card reveal">
       <div class="profile-card__name">${esc(state.site.title)}</div>
       <div class="profile-card__desc">${esc(state.site.description)}</div>
@@ -499,7 +508,14 @@ views.home = async (el) => {
       <div class="layout">
         ${sidebarHtml(state.stats)}
         <div>
+          <div class="home-feed-head">
+            <div>
+              <div class="home-feed-head__title" id="home-feed-title">我的博客</div>
+              <div class="home-feed-head__meta" id="home-feed-meta">记录代码、游戏和生活</div>
+            </div>
+          </div>
           <div class="post-list" id="post-list"></div>
+          <div class="hot-topics-list hidden" id="hot-topics-list"></div>
           <div class="pagination" id="pager"></div>
         </div>
       </div>
@@ -525,6 +541,90 @@ views.home = async (el) => {
     setupReveals($('#post-list'));
   };
   renderPage();
+
+  const hotList = $('#hot-topics-list');
+  const renderHotDay = (data, selectedDate) => {
+    const day = data.days.find((item) => item.date === selectedDate) || data.days[0];
+    if (!day) {
+      hotList.innerHTML = '<div class="glass hot-topics-empty">暂时没有获取到热点，请稍后再试。</div>';
+      return;
+    }
+    const updated = day.updatedAt ? new Date(day.updatedAt).toLocaleString('zh-CN', { hour12: false }) : '等待更新';
+    const groups = [
+      { key: 'tech', label: '科技热点', icon: ICO.list, items: day.categories?.tech || [] },
+      { key: 'game', label: '游戏热点', icon: ICO.hot, items: day.categories?.game || [] },
+    ];
+    hotList.innerHTML = `
+      <div class="hot-topics__summary glass">
+        <span>${ICO.hot} ${day.date === data.today ? '今日热点' : '昨日热点'}</span>
+        <small>${day.date === data.today ? '' : '历史保留数据 · '}${esc(day.date)} · 更新于 ${esc(updated)}</small>
+      </div>
+      <div class="hot-topics__tabs" role="tablist" aria-label="热点日期">
+        ${data.days.map((item) => `
+          <button class="hot-topic-day-btn ${item.date === day.date ? 'active' : ''}" type="button" role="tab" aria-selected="${item.date === day.date ? 'true' : 'false'}" data-hot-date="${esc(item.date)}">
+            <span>${item.date === data.today ? '今天' : '昨天'}</span><small>${esc(item.date)}</small>
+          </button>`).join('')}
+      </div>
+      ${groups.map((group) => `
+        <section class="hot-topics__group">
+          <h3 class="hot-topics__group-title">${group.icon}<span>${group.label}</span><small>${group.items.length} 条</small></h3>
+          <div class="hot-topics__items">
+            ${group.items.length ? group.items.map((item, index) => `
+              <a class="glass glass-hover hot-topic-card reveal" href="${esc(item.url)}" target="_blank" rel="noopener noreferrer nofollow">
+                <span class="hot-topic-card__rank">${String(index + 1).padStart(2, '0')}</span>
+                <span class="hot-topic-card__body">
+                  <span class="hot-topic-card__title">${esc(item.title)}</span>
+                  <span class="hot-topic-card__meta">${esc(item.source || '未知来源')}${item.publishedAt ? ` · ${esc(fmtDate(item.publishedAt))}` : ''}</span>
+                </span>
+                <span class="hot-topic-card__arrow">${ICO.right}</span>
+              </a>`).join('') : '<div class="glass hot-topics__group-empty">这个分类暂时没有可用热点。</div>'}
+          </div>
+        </section>`).join('')}
+      </div>`;
+    $$('.hot-topic-day-btn', hotList).forEach((button) => {
+      button.addEventListener('click', () => renderHotDay(data, button.dataset.hotDate));
+    });
+    setupReveals(hotList);
+  };
+
+  const renderHotTopics = async () => {
+    if (!hotList) return;
+    hotList.innerHTML = '<div class="glass hot-topics-empty">正在获取今日热点…</div>';
+    try {
+      const data = state.hotTopics || await api('/api/hot-topics');
+      state.hotTopics = data;
+      if (!data.enabled) {
+        hotList.innerHTML = '<div class="glass hot-topics-empty">每日热点功能尚未开启。</div>';
+        return;
+      }
+      if (!Array.isArray(data.days) || !data.days.length) {
+        hotList.innerHTML = '<div class="glass hot-topics-empty">暂时没有获取到热点，请稍后再试。</div>';
+        return;
+      }
+      renderHotDay(data, data.today || data.days[0].date);
+    } catch (error) {
+      hotList.innerHTML = `<div class="glass hot-topics-empty">热点暂时加载失败：${esc(error.message)}</div>`;
+    }
+  };
+
+  const setHomeMode = (mode) => {
+    const isHot = mode === 'hot';
+    $$('.content-switcher__btn', el).forEach((button) => {
+      const active = button.dataset.homeMode === mode;
+      button.classList.toggle('active', active);
+      button.setAttribute('aria-selected', active ? 'true' : 'false');
+    });
+    $('#post-list').classList.toggle('hidden', isHot);
+    $('#pager').classList.toggle('hidden', isHot);
+    hotList.classList.toggle('hidden', !isHot);
+    $('#home-feed-title').textContent = isHot ? '每日热点' : '我的博客';
+    $('#home-feed-meta').textContent = isHot ? '每天自动整理，点击标题查看原文' : '记录代码、游戏和生活';
+    if (isHot) void renderHotTopics();
+    else renderPage();
+  };
+  $$('.content-switcher__btn', el).forEach((button) => {
+    button.addEventListener('click', () => setHomeMode(button.dataset.homeMode));
+  });
 
   // 首页首屏的背景图会随滚动缓慢放大、虚化并淡出，离开首页时清理监听。
   const hero = $('.hero', el);

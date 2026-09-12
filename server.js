@@ -19,6 +19,7 @@ const {
   sessionCookie, sharedDelete, sharedGet, sharedSet, sharedSetIfAbsent, userSessionCookie, verifyCsrfToken,
 } = require('./lib/security');
 const { writeTextAtomic } = require('./lib/storage');
+const { DEFAULT_FEEDS, fetchHotTopics } = require('./lib/hot-topics');
 
 const ROOT = __dirname;
 function loadEnvFile() {
@@ -75,6 +76,14 @@ const BACKUP_INTERVAL_MS = (Number.isFinite(backupHours) ? Math.min(Math.max(bac
 const CAPTCHA_ENABLED = /^(1|true|yes)$/i.test(String(process.env.CAPTCHA_ENABLED || ''));
 const CAPTCHA_VERIFY_URL = String(process.env.CAPTCHA_VERIFY_URL || '').trim();
 const CAPTCHA_SECRET = String(process.env.CAPTCHA_SECRET || '').trim();
+const HOT_TOPICS_ENABLED = !/^(0|false|no)$/i.test(String(process.env.HOT_TOPICS_ENABLED || 'true'));
+const HOT_TOPICS_LIMIT = envLimit('HOT_TOPICS_LIMIT', 10, 30);
+const HOT_TOPICS_REFRESH_HOUR = Number.isInteger(Number(process.env.HOT_TOPICS_REFRESH_HOUR))
+  ? Math.min(Math.max(Number(process.env.HOT_TOPICS_REFRESH_HOUR), 0), 23) : 7;
+const HOT_TOPICS_REFRESH_MINUTE = Number.isInteger(Number(process.env.HOT_TOPICS_REFRESH_MINUTE))
+  ? Math.min(Math.max(Number(process.env.HOT_TOPICS_REFRESH_MINUTE), 0), 59) : 0;
+const HOT_TOPICS_FEEDS = String(process.env.HOT_TOPICS_FEEDS || '')
+  .split(/\s*,\s*/).map((url) => url.trim()).filter(Boolean);
 
 if (IS_PRODUCTION && ADMIN_PASSWORD.length < 8) {
   throw new Error('生产环境必须设置至少 8 位的 ADMIN_PASSWORD');
@@ -208,6 +217,139 @@ let guestbook = loadGuestbook();
 let comments = loadComments();
 let journals = loadJournals();
 let users = loadUsers();
+
+function shanghaiDateKey(date = new Date()) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).formatToParts(date).reduce((result, item) => ({ ...result, [item.type]: item.value }), {});
+  return `${parts.year}-${parts.month}-${parts.day}`;
+}
+
+function shiftShanghaiDate(dateKey, days) {
+  const base = new Date(dateKey + 'T00:00:00+08:00');
+  if (Number.isNaN(base.getTime())) return '';
+  base.setUTCDate(base.getUTCDate() + days);
+  return shanghaiDateKey(base);
+}
+
+function emptyHotTopicCategories() {
+  return { tech: [], game: [] };
+}
+
+function normalizeHotTopicItem(item) {
+  let url = '';
+  try {
+    const parsed = new URL(String(item?.url || ''));
+    if (['http:', 'https:'].includes(parsed.protocol)) url = parsed.toString();
+  } catch { /* 忽略无效链接 */ }
+  return {
+    title: String(item?.title || '').trim().slice(0, 180),
+    url,
+    source: String(item?.source || '未知来源').trim().slice(0, 80),
+    publishedAt: item?.publishedAt && !Number.isNaN(Date.parse(item.publishedAt)) ? new Date(item.publishedAt).toISOString() : null,
+  };
+}
+
+function normalizeHotTopicDay(value) {
+  const categories = emptyHotTopicCategories();
+  if (value?.categories && typeof value.categories === 'object') {
+    for (const category of Object.keys(categories)) {
+      categories[category] = Array.isArray(value.categories[category])
+        ? value.categories[category].map(normalizeHotTopicItem).filter((item) => item.title && item.url).slice(0, HOT_TOPICS_LIMIT)
+        : [];
+    }
+  } else if (Array.isArray(value?.items)) {
+    for (const item of value.items) {
+      const category = item?.category === 'game' ? 'game' : 'tech';
+      const normalized = normalizeHotTopicItem(item);
+      if (normalized.title && normalized.url && categories[category].length < HOT_TOPICS_LIMIT) categories[category].push(normalized);
+    }
+  }
+  return {
+    date: /^\d{4}-\d{2}-\d{2}$/.test(String(value?.date || '')) ? value.date : '',
+    updatedAt: value?.updatedAt && !Number.isNaN(Date.parse(value.updatedAt)) ? new Date(value.updatedAt).toISOString() : null,
+    categories,
+  };
+}
+
+function hotTopicDayCount(day) {
+  return Object.values(day?.categories || {}).reduce((total, items) => total + (Array.isArray(items) ? items.length : 0), 0);
+}
+
+function normalizeHotTopics(value) {
+  const candidates = Array.isArray(value?.days) ? value.days : (value?.date ? [value] : []);
+  const yesterday = shiftShanghaiDate(shanghaiDateKey(), -1);
+  const seen = new Set();
+  const days = candidates.map(normalizeHotTopicDay)
+    .filter((day) => day.date && day.date >= yesterday && !seen.has(day.date) && seen.add(day.date))
+    .sort((a, b) => b.date.localeCompare(a.date))
+    .slice(0, 2);
+  return { days };
+}
+
+const savedHotTopics = readDatabase('hot-topics', { days: [] });
+let hotTopics = normalizeHotTopics(savedHotTopics);
+if (JSON.stringify(savedHotTopics) !== JSON.stringify(hotTopics)) writeDatabase('hot-topics', hotTopics);
+let hotTopicsRefreshPromise = null;
+
+async function refreshHotTopics({ force = false } = {}) {
+  if (!HOT_TOPICS_ENABLED) return hotTopics;
+  const today = shanghaiDateKey();
+  if (!force && hotTopics.days.some((day) => day.date === today && hotTopicDayCount(day))) return hotTopics;
+  if (hotTopicsRefreshPromise) return hotTopicsRefreshPromise;
+  hotTopicsRefreshPromise = (async () => {
+    const lock = await sharedSetIfAbsent('hot-topics-refresh', today, { at: Date.now() }, 15 * 60 * 1000);
+    if (!lock) return hotTopics;
+    try {
+      const items = await fetchHotTopics({
+        feeds: HOT_TOPICS_FEEDS.length ? HOT_TOPICS_FEEDS : DEFAULT_FEEDS,
+        limit: HOT_TOPICS_LIMIT,
+      });
+      const categories = emptyHotTopicCategories();
+      for (const item of items) categories[item.category === 'game' ? 'game' : 'tech'].push(item);
+      const yesterday = shiftShanghaiDate(today, -1);
+      hotTopics = {
+        days: [{ date: today, updatedAt: new Date().toISOString(), categories },
+          ...hotTopics.days.filter((day) => day.date !== today && day.date >= yesterday)].slice(0, 2),
+      };
+      writeDatabase('hot-topics', hotTopics);
+      console.log(`[hot-topics] 已刷新 ${items.length} 条热点（${today}）`);
+    } catch (error) {
+      console.error('[hot-topics] 刷新失败，继续使用上次数据：', error.message);
+    } finally {
+      hotTopicsRefreshPromise = null;
+    }
+    return hotTopics;
+  })();
+  return hotTopicsRefreshPromise;
+}
+
+function publicHotTopicDay(day) {
+  const categories = emptyHotTopicCategories();
+  for (const category of Object.keys(categories)) {
+    categories[category] = Array.isArray(day?.categories?.[category])
+      ? day.categories[category].map(normalizeHotTopicItem).filter((item) => item.title && item.url)
+      : [];
+  }
+  return { date: day?.date || '', updatedAt: day?.updatedAt || null, categories };
+}
+
+function hotTopicsForClient() {
+  const today = shanghaiDateKey();
+  const days = hotTopics.days.map(publicHotTopicDay);
+  const current = days.find((day) => day.date === today) || days[0] || null;
+  const categories = current?.categories || emptyHotTopicCategories();
+  return {
+    enabled: HOT_TOPICS_ENABLED,
+    today,
+    date: current?.date || '',
+    updatedAt: current?.updatedAt || null,
+    stale: Boolean(current && current.date !== today),
+    days,
+    categories,
+    items: [...categories.tech, ...categories.game],
+  };
+}
 
 let stateTimer = null;
 function persistState() {
@@ -699,6 +841,13 @@ async function handleApi(req, res, pathname, query) {
     return sendJson(res, 200, { ok: true, uptime: Math.floor(process.uptime()), timestamp: new Date().toISOString() });
   }
 
+  if (pathname === '/api/hot-topics' && method === 'GET') {
+    if (!HOT_TOPICS_ENABLED) return sendJson(res, 200, hotTopicsForClient());
+    const today = shanghaiDateKey();
+    if (!hotTopics.days.some((day) => day.date === today && hotTopicDayCount(day))) await refreshHotTopics();
+    return sendJson(res, 200, hotTopicsForClient());
+  }
+
   if (pathname === '/api/me' && method === 'GET') {
     const userId = await getUserSession(req);
     const user = userId ? getUserById(userId) : null;
@@ -880,6 +1029,13 @@ async function handleApi(req, res, pathname, query) {
 
   if (pathname === '/api/admin/session' && method === 'GET') {
     return sendJson(res, 200, { ok: true, csrfToken: await getAdminCsrfToken(req) });
+  }
+
+  if (pathname === '/api/admin/hot-topics/refresh' && method === 'POST') {
+    await refreshHotTopics({ force: true });
+    const result = hotTopicsForClient();
+    if (!result.items.length) return sendJson(res, 502, { error: '热点来源暂时不可用，请稍后重试' });
+    return sendJson(res, 200, { ok: true, ...result });
   }
 
   if (pathname === '/api/guestbook' && method === 'POST' && await rejectWhenLimited(req, res, 'guestbook', 5, 10 * 60 * 1000, '留言过于频繁，请稍后再试')) return;
@@ -1332,6 +1488,31 @@ function scheduleAutomaticBackups() {
   timer.unref();
 }
 
+function nextHotTopicsDelay() {
+  const now = Date.now();
+  const today = shanghaiDateKey();
+  const clock = `${String(HOT_TOPICS_REFRESH_HOUR).padStart(2, '0')}:${String(HOT_TOPICS_REFRESH_MINUTE).padStart(2, '0')}:00`;
+  let target = Date.parse(`${today}T${clock}+08:00`);
+  if (!Number.isFinite(target) || target <= now) {
+    const tomorrow = new Date(`${today}T00:00:00+08:00`);
+    tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+    target = Date.parse(`${shanghaiDateKey(tomorrow)}T${clock}+08:00`);
+  }
+  return Math.max(1000, target - now);
+}
+
+function scheduleAutomaticHotTopics() {
+  if (!HOT_TOPICS_ENABLED) return;
+  const run = async () => {
+    try { await refreshHotTopics(); }
+    finally {
+      const timer = setTimeout(run, nextHotTopicsDelay());
+      timer.unref();
+    }
+  };
+  void run();
+}
+
 /* ---------------- 服务器 ---------------- */
 
 const server = http.createServer(async (req, res) => {
@@ -1373,6 +1554,7 @@ initSecurityStore().then((store) => {
     console.log(`  🍃 共享状态：${sharedStateLabel}`);
     if (!process.env.ADMIN_PASSWORD) console.log(process.env.NODE_ENV === 'production' ? '  ⚠ 生产环境未配置 ADMIN_PASSWORD，后台登录已禁用' : '  ⚠ 当前使用开发默认密码 leaf-admin，部署前请设置 ADMIN_PASSWORD');
     scheduleAutomaticBackups();
+    scheduleAutomaticHotTopics();
     console.log('');
   });
 });

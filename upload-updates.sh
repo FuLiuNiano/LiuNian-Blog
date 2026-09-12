@@ -27,6 +27,10 @@ FILES=(
   README.md
   DEPLOY.md
   deploy.sh
+  server.js
+  lib/hot-topics.js
+  public/js/app.js
+  public/css/style.css
   start-blog.ps1
   stop-blog.ps1
   upload-updates.sh
@@ -87,7 +91,7 @@ if [[ -z "$GIT_NAME" || -z "$GIT_EMAIL" ]]; then
   git config --local user.email "$GIT_EMAIL"
 fi
 
-COMMIT_MESSAGE="${1:-支持自定义博客端口和 1Panel 代理}"
+COMMIT_MESSAGE="${1:-增加每日热点和主页内容分类}"
 git commit -m "$COMMIT_MESSAGE"
 
 log "开始推送到：$REMOTE_URL"

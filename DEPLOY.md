@@ -181,7 +181,16 @@ BACKUP_DIR=/var/backups/leaf-blog
 
 VIEW_DEDUP_MINUTES=30
 LINK_BLOCKLIST=example-bad-domain.com,another-bad-domain.com
+
+HOT_TOPICS_ENABLED=true
+# 每个分类最多 10 条
+HOT_TOPICS_LIMIT=10
+HOT_TOPICS_REFRESH_HOUR=7
+HOT_TOPICS_REFRESH_MINUTE=0
+# HOT_TOPICS_FEEDS=https://example.com/news.xml,https://example.com/tech.xml
 ```
+
+首页左侧的“内容分类”可以切换“我的博客”和“每日热点”；每日热点分为科技热点和游戏热点，并保留今天、昨天两天的数据。默认按上海时间 07:00 自动抓取 RSS 并缓存到 SQLite，更早的数据会自动清理。修改上述配置后重启 `leaf-blog` 服务即可。
 
 验证码邮件配置按实际邮箱填写：
 

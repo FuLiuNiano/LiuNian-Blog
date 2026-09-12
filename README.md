@@ -11,6 +11,7 @@
 - Nginx 反向代理
 - systemd 常驻运行
 - 自动备份、阅读量去重、外部链接检查
+- 首页“我的博客 / 每日热点”切换，每天自动刷新热点并缓存到 SQLite
 - Ubuntu / Debian Bash 一键部署脚本
 
 ## 一键部署
@@ -134,6 +135,28 @@ sudo bash deploy.sh --domain blog.example.com --no-nginx --port 9000
 ~~~
 
 Node 服务默认只监听 127.0.0.1:8080，也可以用 --port NUMBER 改成其他本机端口。外部访问统一经过 Nginx 或 1Panel。不要把 Node 端口或 Redis 的 6379 端口开放到公网。
+
+## 每日热点
+
+首页左侧的“内容分类”可以切换“我的博客”和“每日热点”。每日热点中分为“科技热点”和“游戏热点”，服务器按上海时间每天 07:00 自动抓取 RSS 新闻源，并将今天和昨天的标题、来源、时间和原文链接保存到 SQLite；更早的数据会自动清理，外部来源暂时不可用时会继续显示上一次成功的数据。
+
+默认使用科技、人工智能新闻，以及 RSSHub 提供的小黑盒游戏新闻和游戏折扣来源。RSSHub 文档列出了小黑盒的 `xiaoheihe/news` 和 `xiaoheihe/discount/pc` 路由；可以在服务器的 `.env` 中调整刷新时间和来源：
+
+~~~dotenv
+HOT_TOPICS_ENABLED=true
+# 每个分类最多 10 条
+HOT_TOPICS_LIMIT=10
+HOT_TOPICS_REFRESH_HOUR=7
+HOT_TOPICS_REFRESH_MINUTE=0
+# HOT_TOPICS_FEEDS=https://example.com/news.xml,https://example.com/tech.xml
+~~~
+
+只建议使用允许公开访问的官方 RSS 或授权新闻 API，不要把需要登录的账号信息写进代码或提交到 GitHub。修改 `.env` 后重启博客：
+
+~~~bash
+sudo systemctl restart leaf-blog
+curl http://127.0.0.1:8080/api/hot-topics
+~~~
 
 ## 部署后管理
 

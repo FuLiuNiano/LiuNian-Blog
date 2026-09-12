@@ -15,5 +15,6 @@ data/journals.json
 data/state.json
 data/site.json
 public/uploads/
+public/music/
 data/posts.json
 data/content/

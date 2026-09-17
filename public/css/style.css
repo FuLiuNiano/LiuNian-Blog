@@ -1248,21 +1248,19 @@ body.dark .auth-note { background: rgba(58, 154, 216, .14); }
   color: var(--accent); opacity: .16; font-size: 12px; letter-spacing: 4px;
   pointer-events: none;
 }
-.music-panel__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.music-panel__head { display: flex; align-items: flex-start; justify-content: flex-start; gap: 12px; }
 .music-panel__head strong { display: block; font-family: 'Courier New', monospace; font-size: 16px; letter-spacing: 1px; }
 .music-panel__eyebrow, .music-track__label {
   display: block; margin-bottom: 2px;
   color: var(--accent); font-family: 'Courier New', monospace; font-size: 10px; font-weight: 700; letter-spacing: 1.5px;
 }
-.music-panel__close, .music-controls button {
+.music-controls button {
   display: inline-flex; align-items: center; justify-content: center;
   border: 0; color: var(--text-soft); background: transparent; cursor: url('/cursors/bow.svg') 8 8, pointer;
   transition: color .2s, background .2s, transform .2s;
 }
-.music-panel__close { width: 27px; height: 27px; border-radius: 9px; }
-.music-panel__close:hover, .music-controls button:hover { color: var(--accent); background: rgba(111, 192, 255, .12); transform: translateY(-1px); }
+.music-controls button:hover { color: var(--accent); background: rgba(111, 192, 255, .12); transform: translateY(-1px); }
 .music-controls button.active { color: var(--accent); background: rgba(111, 192, 255, .16); }
-.music-panel__close svg { width: 16px; height: 16px; }
 .music-track { display: flex; align-items: center; gap: 13px; margin: 17px 0 13px; min-width: 0; }
 .music-disc {
   position: relative; flex: 0 0 auto; width: 64px; height: 64px; display: grid; place-items: center;

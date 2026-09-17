@@ -88,7 +88,6 @@ const ICO = {
   replay: I('<path d="M3 12a9 9 0 1 0 3-6.7"/><polyline points="3 3 3 9 9 9"/>'),
   shuffle: I('<polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/>'),
   next: I('<polygon points="5 4 15 12 5 20 5 4" fill="currentColor" stroke="none"/><line x1="19" y1="5" x2="19" y2="19"/>', false),
-  close: I('<line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/>'),
   tv: I('<rect x="2" y="7" width="20" height="15" rx="2"/><polyline points="17 2 12 7 7 2"/>'),
 };
 
@@ -238,7 +237,6 @@ function buildShell() {
       <section class="music-panel hidden" id="music-panel" aria-hidden="true">
         <div class="music-panel__head">
           <div><span class="music-panel__eyebrow">LEAF FM · 01</span><strong>林间电台</strong></div>
-          <button class="music-panel__close" id="music-close" type="button" title="收起播放器">${ICO.close}</button>
         </div>
         <div class="music-track">
           <div class="music-disc" id="music-disc"><span>♫</span><i></i></div>
@@ -300,7 +298,6 @@ function setupMusicPlayer(site, tracks = musicTracks(site)) {
   const button = $('#btn-music');
   const panel = $('#music-panel');
   const dock = $('#music-dock');
-  const close = $('#music-close');
   const playButton = $('#music-play');
   const shuffleButton = $('#music-shuffle');
   const replayButton = $('#music-replay');
@@ -325,6 +322,7 @@ function setupMusicPlayer(site, tracks = musicTracks(site)) {
     panel?.setAttribute('aria-hidden', String(!open));
     button.classList.toggle('is-open', open);
   };
+  const togglePanel = () => setPanel(!panel || panel.classList.contains('hidden'));
   const syncEmpty = () => {
     if (trackStatus) trackStatus.textContent = '请先到后台“站点设置”填写音频地址';
     if (playButton) { playButton.disabled = true; playButton.innerHTML = ICO.play; }
@@ -335,8 +333,7 @@ function setupMusicPlayer(site, tracks = musicTracks(site)) {
   };
   if (!audio) {
     syncEmpty();
-    button.addEventListener('click', () => { setPanel(true); toast('还没有设置音乐，请到后台“站点设置”填写音频地址'); });
-    close?.addEventListener('click', () => setPanel(false));
+    button.addEventListener('click', () => { togglePanel(); toast('还没有设置音乐，请到后台“站点设置”填写音频地址'); });
     return;
   }
   const timeKey = 'leaf-music-time';
@@ -422,7 +419,7 @@ function setupMusicPlayer(site, tracks = musicTracks(site)) {
     else sync();
   });
   audio.addEventListener('error', () => { if (trackStatus) trackStatus.textContent = '音频加载失败 · 请检查地址或文件格式'; });
-  button.addEventListener('click', () => setPanel(true));
+  button.addEventListener('click', togglePanel);
   playButton?.addEventListener('click', togglePlayback);
   shuffleButton?.addEventListener('click', () => {
     shuffleMode = !shuffleMode;
@@ -454,7 +451,6 @@ function setupMusicPlayer(site, tracks = musicTracks(site)) {
   progress?.addEventListener('change', finishSeek);
   progress?.addEventListener('pointerup', finishSeek);
   progress?.addEventListener('pointercancel', finishSeek);
-  close?.addEventListener('click', () => setPanel(false));
   dock?.addEventListener('click', (event) => event.stopPropagation());
   document.addEventListener('click', (event) => { if (!dock?.contains(event.target)) setPanel(false); });
   sync();

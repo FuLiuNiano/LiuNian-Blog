@@ -1261,6 +1261,7 @@ body.dark .auth-note { background: rgba(58, 154, 216, .14); }
 }
 .music-panel__close { width: 27px; height: 27px; border-radius: 9px; }
 .music-panel__close:hover, .music-controls button:hover { color: var(--accent); background: rgba(111, 192, 255, .12); transform: translateY(-1px); }
+.music-controls button.active { color: var(--accent); background: rgba(111, 192, 255, .16); }
 .music-panel__close svg { width: 16px; height: 16px; }
 .music-track { display: flex; align-items: center; gap: 13px; margin: 17px 0 13px; min-width: 0; }
 .music-disc {

@@ -145,6 +145,7 @@ async function enter(password) {
 function fillSiteForm() {
   const form = $('#site-form'); if (!form || !store.site) return;
   ['title', 'en', 'subtitle', 'description', 'avatar', 'logo', 'since', 'authorName', 'authorRole', 'authorAccount', 'about', 'github', 'email', 'footer', 'musicTitle', 'musicUrl', 'introTitle', 'introText', 'heroImage', 'journalName', 'journalDescription', 'donationQr', 'donationText'].forEach((key) => { form.elements[key].value = store.site[key] || ''; });
+  form.elements.musicPlaylist.value = (store.site.musicPlaylist || []).map((item) => `${item.title} | ${item.url}`).join('\n');
   form.elements.skills.value = (store.site.skills || []).join(', ');
   form.elements.timeline.value = (store.site.timeline || []).map((item) => `${item.date} | ${item.text}`).join('\n');
   form.elements.heroRotation.checked = store.site.heroRotation !== false;
@@ -403,6 +404,7 @@ $('#site-form').addEventListener('submit', async (event) => {
   event.preventDefault(); const form = event.currentTarget; const data = Object.fromEntries(new FormData(form));
   data.skills = data.skills.split(/[,，]/).map((item) => item.trim()).filter(Boolean);
   data.timeline = data.timeline.split('\n').map((line) => { const split = line.indexOf('|'); return split < 0 ? { date: '', text: line.trim() } : { date: line.slice(0, split).trim(), text: line.slice(split + 1).trim() }; }).filter((item) => item.date || item.text);
+  data.musicPlaylist = data.musicPlaylist.split(/\r?\n/).map((line) => { const split = line.indexOf('|'); return split < 0 ? { title: line.trim(), url: '' } : { title: line.slice(0, split).trim(), url: line.slice(split + 1).trim() }; }).filter((item) => item.title && item.url);
   data.heroRotation = form.elements.heroRotation.checked;
   data.journalEnabled = form.elements.journalEnabled.checked;
   data.heroImages = data.heroImages.split('\n').map((line) => {

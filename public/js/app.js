@@ -86,6 +86,8 @@ const ICO = {
   volume: I('<polygon points="4 9 8 9 13 5 13 19 8 15 4 15 4 9"/><path d="M16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11"/>'),
   mute: I('<polygon points="4 9 8 9 13 5 13 19 8 15 4 15 4 9"/><line x1="17" y1="9" x2="21" y2="15"/><line x1="21" y1="9" x2="17" y2="15"/>'),
   replay: I('<path d="M3 12a9 9 0 1 0 3-6.7"/><polyline points="3 3 3 9 9 9"/>'),
+  shuffle: I('<polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/>'),
+  next: I('<polygon points="5 4 15 12 5 20 5 4" fill="currentColor" stroke="none"/><line x1="19" y1="5" x2="19" y2="19"/>', false),
   close: I('<line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/>'),
   tv: I('<rect x="2" y="7" width="20" height="15" rx="2"/><polyline points="17 2 12 7 7 2"/>'),
 };
@@ -99,6 +101,13 @@ const state = {
   viewer: null,
   dark: localStorage.getItem('leaf-dark') === '1',
 };
+
+function musicTracks(site) {
+  const playlist = Array.isArray(site?.musicPlaylist)
+    ? site.musicPlaylist.filter((item) => item && item.url).map((item) => ({ title: item.title || '背景音乐', url: item.url }))
+    : [];
+  return playlist.length ? playlist : (site?.musicUrl ? [{ title: site.musicTitle || '背景音乐', url: site.musicUrl }] : []);
+}
 
 function applyDark() {
   document.body.classList.toggle('dark', state.dark);
@@ -188,6 +197,8 @@ document.addEventListener('click', (e) => {
 /* ============ 导航栏 / 全局壳 ============ */
 function buildShell() {
   const site = state.site;
+  const tracks = musicTracks(site);
+  const firstTrack = tracks[0] || null;
   const items = [
     ['/', '主页', ICO.home],
     ...(site.journalEnabled !== false ? [['/journal', site.journalName || '随笔', ICO.pen]] : []),
@@ -233,23 +244,25 @@ function buildShell() {
           <div class="music-disc" id="music-disc"><span>♫</span><i></i></div>
           <div class="music-track__info">
             <span class="music-track__label">NOW PLAYING</span>
-            <strong id="music-track-title">${esc(site.musicTitle || (site.musicUrl ? '背景音乐' : '还没有音乐'))}</strong>
-            <small id="music-track-status">${site.musicUrl ? '点击播放，让旋律留在页面里' : '请先到后台设置音频地址'}</small>
+            <strong id="music-track-title">${esc(firstTrack?.title || '还没有音乐')}</strong>
+            <small id="music-track-status">${tracks.length ? `${tracks.length} 首歌曲 · 点击播放` : '请先到后台设置音频地址'}</small>
           </div>
         </div>
         <div class="music-wave" id="music-wave" aria-hidden="true">${Array.from({ length: 16 }, (_, i) => `<i style="--bar:${(i * 7) % 5 + 2}"></i>`).join('')}</div>
-        <input class="music-progress" id="music-progress" type="range" min="0" max="0" value="0" step="0.1" aria-label="播放进度" ${site.musicUrl ? '' : 'disabled'}>
+        <input class="music-progress" id="music-progress" type="range" min="0" max="0" value="0" step="0.1" aria-label="播放进度" ${tracks.length ? '' : 'disabled'}>
         <div class="music-time"><span id="music-current">00:00</span><span id="music-duration">00:00</span></div>
         <div class="music-controls">
+          <button type="button" id="music-shuffle" title="随机播放">${ICO.shuffle}</button>
           <button type="button" id="music-replay" title="从头播放">${ICO.replay}</button>
           <button type="button" id="music-play" class="music-controls__main" title="播放">${ICO.play}</button>
+          <button type="button" id="music-next" title="下一首">${ICO.next}</button>
           <button type="button" id="music-volume" title="静音">${ICO.volume}</button>
         </div>
       </section>
-      <button class="music-fab" id="btn-music" type="button" title="${site.musicUrl ? `打开播放器：${esc(site.musicTitle || '背景音乐')}` : '音乐未配置'}">
+      <button class="music-fab" id="btn-music" type="button" title="${tracks.length ? '打开音乐播放器' : '音乐未配置'}">
         <span class="music-fab__ring"></span>${ICO.music}<b>♪</b>
       </button>
-      ${site.musicUrl ? `<audio id="site-audio" src="${esc(site.musicUrl)}" preload="metadata"></audio>` : ''}
+      ${firstTrack ? `<audio id="site-audio" src="${esc(firstTrack.url)}" preload="metadata"></audio>` : ''}
     </div>
     <button class="icon-btn" id="to-top" title="回到顶部">${ICO.up}</button>`;
 
@@ -280,20 +293,23 @@ function buildShell() {
 
   $('#to-top').addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
   updatePublicLoginButton();
-  setupMusicPlayer(site);
+  setupMusicPlayer(site, tracks);
 }
 
-function setupMusicPlayer(site) {
+function setupMusicPlayer(site, tracks = musicTracks(site)) {
   const button = $('#btn-music');
   const panel = $('#music-panel');
   const dock = $('#music-dock');
   const close = $('#music-close');
   const playButton = $('#music-play');
+  const shuffleButton = $('#music-shuffle');
   const replayButton = $('#music-replay');
+  const nextButton = $('#music-next');
   const volumeButton = $('#music-volume');
   const progress = $('#music-progress');
   const currentTime = $('#music-current');
   const duration = $('#music-duration');
+  const trackTitle = $('#music-track-title');
   const trackStatus = $('#music-track-status');
   const disc = $('#music-disc');
   const wave = $('#music-wave');
@@ -313,6 +329,8 @@ function setupMusicPlayer(site) {
     if (trackStatus) trackStatus.textContent = '请先到后台“站点设置”填写音频地址';
     if (playButton) { playButton.disabled = true; playButton.innerHTML = ICO.play; }
     if (replayButton) replayButton.disabled = true;
+    if (shuffleButton) shuffleButton.disabled = true;
+    if (nextButton) nextButton.disabled = true;
     if (volumeButton) volumeButton.disabled = true;
   };
   if (!audio) {
@@ -324,18 +342,23 @@ function setupMusicPlayer(site) {
   const timeKey = 'leaf-music-time';
   const playingKey = 'leaf-music-playing';
   const savedTime = Number(localStorage.getItem(timeKey) || 0);
+  let currentIndex = 0;
+  let shuffleMode = localStorage.getItem('leaf-music-shuffle') === '1';
   let restored = false;
   let seeking = false;
   const sync = () => {
     const playing = !audio.paused;
     const hasDuration = Number.isFinite(audio.duration) && audio.duration > 0;
+    const track = tracks[currentIndex] || { title: site.musicTitle || '背景音乐' };
     button.classList.toggle('active', playing);
-    button.title = playing ? `暂停：${site.musicTitle || '背景音乐'}` : `播放：${site.musicTitle || '背景音乐'}`;
+    button.title = '打开音乐播放器';
     panel?.classList.toggle('is-playing', playing);
     disc?.classList.toggle('is-playing', playing);
     wave?.classList.toggle('is-playing', playing);
     if (playButton) playButton.innerHTML = playing ? ICO.pause : ICO.play;
-    if (trackStatus) trackStatus.textContent = playing ? '正在播放 · 点击唱片按钮可暂停' : (audio.ended ? '播放结束 · 可以重新开始' : '准备好了 · 点击播放');
+    if (trackTitle) trackTitle.textContent = track.title;
+    if (trackStatus) trackStatus.textContent = playing ? '正在播放 · 使用中间按钮暂停' : (audio.ended ? '播放结束 · 点击播放重新开始' : `${tracks.length} 首歌曲 · 点击中间按钮播放`);
+    shuffleButton?.classList.toggle('active', shuffleMode);
     if (progress) {
       progress.max = hasDuration ? String(audio.duration) : '0';
       if (!seeking) progress.value = hasDuration ? String(audio.currentTime) : '0';
@@ -343,6 +366,32 @@ function setupMusicPlayer(site) {
     if (currentTime) currentTime.textContent = formatTime(audio.currentTime);
     if (duration) duration.textContent = formatTime(audio.duration);
     if (volumeButton) volumeButton.innerHTML = audio.muted ? ICO.mute : ICO.volume;
+    if (nextButton) nextButton.disabled = tracks.length < 2;
+  };
+  const nextIndex = () => {
+    if (tracks.length < 2) return currentIndex;
+    if (!shuffleMode) return (currentIndex + 1) % tracks.length;
+    let index = currentIndex;
+    while (index === currentIndex) index = Math.floor(Math.random() * tracks.length);
+    return index;
+  };
+  const selectTrack = async (index, autoplay) => {
+    if (!tracks.length) return;
+    currentIndex = Math.min(Math.max(Number(index) || 0, 0), tracks.length - 1);
+    const track = tracks[currentIndex];
+    audio.pause();
+    audio.src = track.url;
+    audio.load();
+    restored = true;
+    seeking = false;
+    localStorage.setItem(timeKey, '0');
+    if (trackTitle) trackTitle.textContent = track.title;
+    if (progress) { progress.value = '0'; progress.max = '0'; }
+    sync();
+    if (autoplay) {
+      try { await audio.play(); }
+      catch { if (trackStatus) trackStatus.textContent = '音乐播放失败 · 请检查音频地址'; }
+    }
   };
   const restore = () => {
     if (restored) return;
@@ -352,7 +401,7 @@ function setupMusicPlayer(site) {
   const togglePlayback = async () => {
     if (audio.paused) {
       restore();
-      try { await audio.play(); toast(`正在播放：${site.musicTitle || '背景音乐'}`); }
+      try { await audio.play(); toast(`正在播放：${tracks[currentIndex]?.title || site.musicTitle || '背景音乐'}`); }
       catch { toast('音乐播放失败，请检查音频地址'); }
     } else audio.pause();
     sync();
@@ -366,11 +415,22 @@ function setupMusicPlayer(site) {
   });
   audio.addEventListener('play', () => { localStorage.setItem(playingKey, '1'); sync(); });
   audio.addEventListener('pause', () => { localStorage.setItem(playingKey, '0'); sync(); });
-  audio.addEventListener('ended', () => { localStorage.setItem(timeKey, '0'); localStorage.setItem(playingKey, '0'); sync(); });
+  audio.addEventListener('ended', () => {
+    localStorage.setItem(timeKey, '0');
+    localStorage.setItem(playingKey, '0');
+    if (tracks.length > 1) selectTrack(nextIndex(), true);
+    else sync();
+  });
   audio.addEventListener('error', () => { if (trackStatus) trackStatus.textContent = '音频加载失败 · 请检查地址或文件格式'; });
-  button.addEventListener('click', async () => { setPanel(true); await togglePlayback(); });
+  button.addEventListener('click', () => setPanel(true));
   playButton?.addEventListener('click', togglePlayback);
+  shuffleButton?.addEventListener('click', () => {
+    shuffleMode = !shuffleMode;
+    localStorage.setItem('leaf-music-shuffle', shuffleMode ? '1' : '0');
+    sync();
+  });
   replayButton?.addEventListener('click', () => { restore(); audio.currentTime = 0; if (audio.paused) togglePlayback(); else sync(); });
+  nextButton?.addEventListener('click', () => selectTrack(nextIndex(), !audio.paused));
   volumeButton?.addEventListener('click', () => { audio.muted = !audio.muted; sync(); });
   let seekTarget = 0;
   const seekTo = (value) => {
@@ -395,6 +455,7 @@ function setupMusicPlayer(site) {
   progress?.addEventListener('pointerup', finishSeek);
   progress?.addEventListener('pointercancel', finishSeek);
   close?.addEventListener('click', () => setPanel(false));
+  dock?.addEventListener('click', (event) => event.stopPropagation());
   document.addEventListener('click', (event) => { if (!dock?.contains(event.target)) setPanel(false); });
   sync();
 }
@@ -600,6 +661,7 @@ views.home = async (el) => {
   const qPage = +(new URLSearchParams(location.search).get('page') || 1);
   let page = qPage;
   const heroImage = state.heroImage || state.site.heroImage || '/img/leaf-hero-v2.png?v=1';
+  const hasMusic = musicTracks(state.site).length > 0;
 
   el.innerHTML = `
     <section class="hero">
@@ -614,7 +676,7 @@ views.home = async (el) => {
         ${state.site.github ? `<a href="${esc(state.site.github)}" target="_blank" rel="noopener" title="GitHub">${ICO.github}</a>` : ''}
         ${state.site.email ? `<a href="mailto:${esc(state.site.email)}" title="邮箱">${ICO.mail}</a>` : ''}
         <a href="https://www.bilibili.com" target="_blank" rel="noopener" title="B站">${ICO.tv}</a>
-        <a href="#" id="hero-music" title="${state.site.musicUrl ? esc(state.site.musicTitle || '播放音乐') : '设置音乐后播放'}">${ICO.music}</a>
+        <a href="#" id="hero-music" title="${hasMusic ? '打开音乐播放器' : '设置音乐后播放'}">${ICO.music}</a>
         <span class="divider"></span>
         <a href="/guestbook" title="留言板">${ICO.message}</a>
       </div>

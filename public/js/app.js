@@ -237,6 +237,10 @@ function buildShell() {
             <small id="music-track-status">${site.musicUrl ? '点击播放，让旋律留在页面里' : '请先到后台设置音频地址'}</small>
           </div>
         </div>
+        <div class="music-lyrics" id="music-lyrics">
+          <span class="music-lyrics__label">LYRICS</span>
+          <div class="music-lyrics__text">${site.musicLyrics ? esc(site.musicLyrics) : '在后台“站点设置”填写歌词后，会显示在这里。'}</div>
+        </div>
         <div class="music-wave" id="music-wave" aria-hidden="true">${Array.from({ length: 16 }, (_, i) => `<i style="--bar:${(i * 7) % 5 + 2}"></i>`).join('')}</div>
         <input class="music-progress" id="music-progress" type="range" min="0" max="0" value="0" step="0.1" aria-label="播放进度" ${site.musicUrl ? '' : 'disabled'}>
         <div class="music-time"><span id="music-current">00:00</span><span id="music-duration">00:00</span></div>
@@ -324,7 +328,8 @@ function setupMusicPlayer(site) {
   const timeKey = 'leaf-music-time';
   const playingKey = 'leaf-music-playing';
   const savedTime = Number(localStorage.getItem(timeKey) || 0);
-  let resumeAfterGesture = localStorage.getItem(playingKey) === '1';
+  let restored = false;
+  let seeking = false;
   const sync = () => {
     const playing = !audio.paused;
     const hasDuration = Number.isFinite(audio.duration) && audio.duration > 0;
@@ -344,11 +349,13 @@ function setupMusicPlayer(site) {
     if (volumeButton) volumeButton.innerHTML = audio.muted ? ICO.mute : ICO.volume;
   };
   const restore = () => {
+    if (restored) return;
+    restored = true;
     if (savedTime > 0 && Number.isFinite(audio.duration) && savedTime < audio.duration) audio.currentTime = savedTime;
-    if (resumeAfterGesture && audio.paused) audio.play().catch(() => {});
   };
   const togglePlayback = async () => {
     if (audio.paused) {
+      restore();
       try { await audio.play(); toast(`正在播放：${site.musicTitle || '背景音乐'}`); }
       catch { toast('音乐播放失败，请检查音频地址'); }
     } else audio.pause();
@@ -358,18 +365,27 @@ function setupMusicPlayer(site) {
   audio.addEventListener('loadedmetadata', sync);
   audio.addEventListener('timeupdate', () => {
     localStorage.setItem(timeKey, String(audio.currentTime));
-    sync();
+    if (!seeking) sync();
   });
-  audio.addEventListener('play', () => { resumeAfterGesture = false; localStorage.setItem(playingKey, '1'); sync(); });
+  audio.addEventListener('play', () => { localStorage.setItem(playingKey, '1'); sync(); });
   audio.addEventListener('pause', () => { localStorage.setItem(playingKey, '0'); sync(); });
   audio.addEventListener('ended', () => { localStorage.setItem(timeKey, '0'); localStorage.setItem(playingKey, '0'); sync(); });
   audio.addEventListener('error', () => { if (trackStatus) trackStatus.textContent = '音频加载失败 · 请检查地址或文件格式'; });
-  document.addEventListener('pointerdown', restore, { once: true, passive: true });
   button.addEventListener('click', async () => { setPanel(true); await togglePlayback(); });
   playButton?.addEventListener('click', togglePlayback);
-  replayButton?.addEventListener('click', () => { audio.currentTime = 0; if (audio.paused) togglePlayback(); else sync(); });
+  replayButton?.addEventListener('click', () => { restore(); audio.currentTime = 0; if (audio.paused) togglePlayback(); else sync(); });
   volumeButton?.addEventListener('click', () => { audio.muted = !audio.muted; sync(); });
-  progress?.addEventListener('input', () => { if (Number.isFinite(audio.duration)) { audio.currentTime = Number(progress.value); sync(); } });
+  const finishSeek = () => { seeking = false; sync(); };
+  progress?.addEventListener('pointerdown', () => { seeking = true; });
+  progress?.addEventListener('input', () => {
+    if (!Number.isFinite(audio.duration)) return;
+    const target = Math.min(Math.max(Number(progress.value), 0), audio.duration);
+    audio.currentTime = target;
+    if (currentTime) currentTime.textContent = formatTime(target);
+  });
+  progress?.addEventListener('change', finishSeek);
+  progress?.addEventListener('pointerup', finishSeek);
+  progress?.addEventListener('pointercancel', finishSeek);
   close?.addEventListener('click', () => setPanel(false));
   document.addEventListener('click', (event) => { if (!dock?.contains(event.target)) setPanel(false); });
   sync();

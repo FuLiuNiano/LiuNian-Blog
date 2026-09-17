@@ -101,7 +101,7 @@ const siteDefaults = {
   about: '写代码，也玩游戏；玩游戏的间隙写代码，写代码的间隙玩游戏。\n这里记录我的折腾日常：Minecraft 模组与红石、Linux 与运维、前端小技巧，偶尔还有深夜厨房的翻车实录。',
   skills: ['Minecraft', '红石电路', '前端 & CSS', 'Node.js', 'Linux 运维', 'Docker', 'Git', '像素画', '深夜料理'],
   timeline: [{ date: '2024-03', text: '博客开荒，第一篇 Minecraft 教程上线' }, { date: '2024-07', text: '搬进自建服务器，告别白嫖主机' }, { date: '2025-05', text: '全站视觉升级：毛玻璃与极光背景' }, { date: '2025-09', text: '留言板开放，等一个有趣的灵魂' }],
-  github: 'https://github.com', email: 'leaf@example.com', footer: '落叶生根，字句成林', musicTitle: '', musicUrl: '',
+  github: 'https://github.com', email: 'leaf@example.com', footer: '落叶生根，字句成林', musicTitle: '', musicUrl: '', musicLyrics: '',
   introTitle: '欢迎来到 LiuNianのBlog', introText: '向下滚动，进入我的像素森林',
   heroImage: '/img/leaf-hero-v2.png?v=1',
   journalEnabled: true, journalName: '随笔', journalDescription: '记录生活、灵感和那些不想忘记的小事。',
@@ -148,6 +148,7 @@ function loadSite() {
       logo: safeImageUrl(saved.logo, ''),
       heroImage: safeImageUrl(saved.heroImage, siteDefaults.heroImage),
       musicUrl: safeImageUrl(saved.musicUrl, ''),
+      musicLyrics: String(saved.musicLyrics || '').slice(0, 12000),
       donationQr: safeImageUrl(saved.donationQr, ''),
       heroImages: normalizeHeroImages(saved.heroImages),
       friendLinks: normalizeFriendLinks(saved.friendLinks),
@@ -1075,8 +1076,8 @@ async function handleApi(req, res, pathname, query) {
   if (pathname === '/api/admin/site' && method === 'GET') return sendJson(res, 200, siteConfig);
   if (pathname === '/api/admin/site' && method === 'PUT') {
     const body = await readBody(req);
-    const textFields = ['title', 'en', 'subtitle', 'description', 'avatar', 'logo', 'since', 'authorName', 'authorRole', 'authorAccount', 'about', 'github', 'email', 'footer', 'musicTitle', 'musicUrl', 'introTitle', 'introText', 'heroImage', 'journalName', 'journalDescription', 'donationQr', 'donationText'];
-    for (const key of textFields) if (key in body) siteConfig[key] = String(body[key] || '').trim().slice(0, key === 'about' ? 5000 : 500);
+    const textFields = ['title', 'en', 'subtitle', 'description', 'avatar', 'logo', 'since', 'authorName', 'authorRole', 'authorAccount', 'about', 'github', 'email', 'footer', 'musicTitle', 'musicUrl', 'musicLyrics', 'introTitle', 'introText', 'heroImage', 'journalName', 'journalDescription', 'donationQr', 'donationText'];
+    for (const key of textFields) if (key in body) siteConfig[key] = String(body[key] || '').trim().slice(0, key === 'about' ? 5000 : key === 'musicLyrics' ? 12000 : 500);
     if ('logo' in body) siteConfig.logo = safeImageUrl(body.logo, '');
     if ('avatar' in body) siteConfig.avatar = safeImageUrl(body.avatar, siteDefaults.avatar);
     if ('github' in body) siteConfig.github = safeImageUrl(body.github, '');

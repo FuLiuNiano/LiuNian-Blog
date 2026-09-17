@@ -1277,13 +1277,6 @@ body.dark .auth-note { background: rgba(58, 154, 216, .14); }
 .music-track__info { min-width: 0; }
 .music-track__info strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; }
 .music-track__info small { display: block; margin-top: 3px; overflow: hidden; color: var(--text-soft); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
-.music-lyrics {
-  max-height: 116px; margin: 0 0 11px; padding: 9px 11px;
-  overflow: auto; border: 1px solid rgba(111, 192, 255, .16); border-radius: 13px;
-  background: rgba(255, 255, 255, .16); scrollbar-width: thin;
-}
-.music-lyrics__label { display: block; margin-bottom: 4px; color: var(--accent); font: 700 9px 'Courier New', monospace; letter-spacing: 1.5px; }
-.music-lyrics__text { color: var(--text-soft); font-size: 12px; line-height: 1.75; white-space: pre-wrap; }
 .music-wave { display: flex; align-items: center; gap: 3px; height: 20px; margin: 4px 2px 5px; opacity: .35; }
 .music-wave i { display: block; width: 3px; height: calc(var(--bar) * 3px); min-height: 5px; border-radius: 5px; background: var(--gradient); transform-origin: center; }
 .music-wave.is-playing { opacity: .95; }

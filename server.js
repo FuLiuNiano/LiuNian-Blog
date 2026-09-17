@@ -101,7 +101,7 @@ const siteDefaults = {
   about: '写代码，也玩游戏；玩游戏的间隙写代码，写代码的间隙玩游戏。\n这里记录我的折腾日常：Minecraft 模组与红石、Linux 与运维、前端小技巧，偶尔还有深夜厨房的翻车实录。',
   skills: ['Minecraft', '红石电路', '前端 & CSS', 'Node.js', 'Linux 运维', 'Docker', 'Git', '像素画', '深夜料理'],
   timeline: [{ date: '2024-03', text: '博客开荒，第一篇 Minecraft 教程上线' }, { date: '2024-07', text: '搬进自建服务器，告别白嫖主机' }, { date: '2025-05', text: '全站视觉升级：毛玻璃与极光背景' }, { date: '2025-09', text: '留言板开放，等一个有趣的灵魂' }],
-  github: 'https://github.com', email: 'leaf@example.com', footer: '落叶生根，字句成林', musicTitle: '', musicUrl: '', musicLyrics: '',
+  github: 'https://github.com', email: 'leaf@example.com', footer: '落叶生根，字句成林', musicTitle: '', musicUrl: '',
   introTitle: '欢迎来到 LiuNianのBlog', introText: '向下滚动，进入我的像素森林',
   heroImage: '/img/leaf-hero-v2.png?v=1',
   journalEnabled: true, journalName: '随笔', journalDescription: '记录生活、灵感和那些不想忘记的小事。',
@@ -142,13 +142,14 @@ function loadSite() {
   try {
     const saved = readDatabase('site', readJsonFile(SITE_FILE, null));
     if (!saved || typeof saved !== 'object') throw new Error('站点配置不存在');
+    const savedSite = { ...saved };
+    delete savedSite.musicLyrics;
     return {
-      ...siteDefaults, ...saved,
+      ...siteDefaults, ...savedSite,
       github: safeImageUrl(saved.github, siteDefaults.github),
       logo: safeImageUrl(saved.logo, ''),
       heroImage: safeImageUrl(saved.heroImage, siteDefaults.heroImage),
       musicUrl: safeImageUrl(saved.musicUrl, ''),
-      musicLyrics: String(saved.musicLyrics || '').slice(0, 12000),
       donationQr: safeImageUrl(saved.donationQr, ''),
       heroImages: normalizeHeroImages(saved.heroImages),
       friendLinks: normalizeFriendLinks(saved.friendLinks),
@@ -1076,8 +1077,8 @@ async function handleApi(req, res, pathname, query) {
   if (pathname === '/api/admin/site' && method === 'GET') return sendJson(res, 200, siteConfig);
   if (pathname === '/api/admin/site' && method === 'PUT') {
     const body = await readBody(req);
-    const textFields = ['title', 'en', 'subtitle', 'description', 'avatar', 'logo', 'since', 'authorName', 'authorRole', 'authorAccount', 'about', 'github', 'email', 'footer', 'musicTitle', 'musicUrl', 'musicLyrics', 'introTitle', 'introText', 'heroImage', 'journalName', 'journalDescription', 'donationQr', 'donationText'];
-    for (const key of textFields) if (key in body) siteConfig[key] = String(body[key] || '').trim().slice(0, key === 'about' ? 5000 : key === 'musicLyrics' ? 12000 : 500);
+    const textFields = ['title', 'en', 'subtitle', 'description', 'avatar', 'logo', 'since', 'authorName', 'authorRole', 'authorAccount', 'about', 'github', 'email', 'footer', 'musicTitle', 'musicUrl', 'introTitle', 'introText', 'heroImage', 'journalName', 'journalDescription', 'donationQr', 'donationText'];
+    for (const key of textFields) if (key in body) siteConfig[key] = String(body[key] || '').trim().slice(0, key === 'about' ? 5000 : 500);
     if ('logo' in body) siteConfig.logo = safeImageUrl(body.logo, '');
     if ('avatar' in body) siteConfig.avatar = safeImageUrl(body.avatar, siteDefaults.avatar);
     if ('github' in body) siteConfig.github = safeImageUrl(body.github, '');
@@ -1457,21 +1458,44 @@ const MIME = {
   '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
   '.gif': 'image/gif', '.ico': 'image/x-icon', '.webp': 'image/webp',
   '.woff2': 'font/woff2', '.woff': 'font/woff', '.ttf': 'font/ttf', '.otf': 'font/otf',
+  '.mp3': 'audio/mpeg', '.m4a': 'audio/mp4', '.ogg': 'audio/ogg', '.wav': 'audio/wav', '.aac': 'audio/aac', '.flac': 'audio/flac',
   '.md': 'text/plain; charset=utf-8', '.txt': 'text/plain; charset=utf-8',
 };
 
-function send(res, code, filePath) {
-  fs.readFile(filePath, (err, buf) => {
-    if (err) { res.writeHead(500); return res.end('error'); }
+function send(res, code, filePath, req = null) {
+  fs.stat(filePath, (err, stat) => {
+    if (err || !stat.isFile()) { res.writeHead(500); return res.end('error'); }
     const ext = path.extname(filePath).toLowerCase();
     const longCache = ['.png', '.jpg', '.woff2', '.woff', '.ttf'].includes(ext);
-    res.writeHead(code, {
+    const headers = {
       'Content-Type': MIME[ext] || 'application/octet-stream',
       'Cache-Control': longCache ? 'public, max-age=86400' : 'no-cache',
+      'Accept-Ranges': 'bytes', 'Content-Length': stat.size,
       'X-Content-Type-Options': 'nosniff', 'X-Frame-Options': 'SAMEORIGIN',
       'Referrer-Policy': 'strict-origin-when-cross-origin',
-    });
-    res.end(buf);
+    };
+    const match = String(req?.headers?.range || '').match(/^bytes=(\d*)-(\d*)$/);
+    if (match && stat.size > 0) {
+      let start = match[1] ? Number(match[1]) : null;
+      let end = match[2] ? Number(match[2]) : null;
+      if (start === null) {
+        const suffixLength = Number(match[2]);
+        start = Number.isFinite(suffixLength) && suffixLength > 0 ? Math.max(stat.size - suffixLength, 0) : null;
+        end = stat.size - 1;
+      } else {
+        end = end === null || end >= stat.size ? stat.size - 1 : end;
+      }
+      if (start === null || !Number.isFinite(start) || !Number.isFinite(end) || start < 0 || start > end || start >= stat.size) {
+        res.writeHead(416, { 'Content-Range': `bytes */${stat.size}` });
+        return res.end();
+      }
+      headers['Content-Range'] = `bytes ${start}-${end}/${stat.size}`;
+      headers['Content-Length'] = end - start + 1;
+      res.writeHead(206, headers);
+      return fs.createReadStream(filePath, { start, end }).pipe(res);
+    }
+    res.writeHead(code, headers);
+    return fs.createReadStream(filePath).pipe(res);
   });
 }
 
@@ -1489,10 +1513,10 @@ function serveStatic(req, res, pathname) {
 
   fs.stat(filePath, (err, stat) => {
     if (!err && stat.isDirectory()) { filePath = path.join(filePath, 'index.html'); stat = fs.statSync(filePath); }
-    if (!err && stat.isFile()) return send(res, 200, filePath);
+    if (!err && stat.isFile()) return send(res, 200, filePath, req);
 
     // 无扩展名的干净路由 → SPA 回退；带扩展名的缺失资源 → 404
-    if (!path.extname(pathname)) return send(res, 200, path.join(PUBLIC_DIR, 'index.html'));
+    if (!path.extname(pathname)) return send(res, 200, path.join(PUBLIC_DIR, 'index.html'), req);
     res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
     res.end('Not Found');
   });

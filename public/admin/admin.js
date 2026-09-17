@@ -144,7 +144,7 @@ async function enter(password) {
 
 function fillSiteForm() {
   const form = $('#site-form'); if (!form || !store.site) return;
-  ['title', 'en', 'subtitle', 'description', 'avatar', 'logo', 'since', 'authorName', 'authorRole', 'authorAccount', 'about', 'github', 'email', 'footer', 'musicTitle', 'musicUrl', 'musicLyrics', 'introTitle', 'introText', 'heroImage', 'journalName', 'journalDescription', 'donationQr', 'donationText'].forEach((key) => { form.elements[key].value = store.site[key] || ''; });
+  ['title', 'en', 'subtitle', 'description', 'avatar', 'logo', 'since', 'authorName', 'authorRole', 'authorAccount', 'about', 'github', 'email', 'footer', 'musicTitle', 'musicUrl', 'introTitle', 'introText', 'heroImage', 'journalName', 'journalDescription', 'donationQr', 'donationText'].forEach((key) => { form.elements[key].value = store.site[key] || ''; });
   form.elements.skills.value = (store.site.skills || []).join(', ');
   form.elements.timeline.value = (store.site.timeline || []).map((item) => `${item.date} | ${item.text}`).join('\n');
   form.elements.heroRotation.checked = store.site.heroRotation !== false;

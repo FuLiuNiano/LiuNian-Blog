@@ -237,10 +237,6 @@ function buildShell() {
             <small id="music-track-status">${site.musicUrl ? '点击播放，让旋律留在页面里' : '请先到后台设置音频地址'}</small>
           </div>
         </div>
-        <div class="music-lyrics" id="music-lyrics">
-          <span class="music-lyrics__label">LYRICS</span>
-          <div class="music-lyrics__text">${site.musicLyrics ? esc(site.musicLyrics) : '在后台“站点设置”填写歌词后，会显示在这里。'}</div>
-        </div>
         <div class="music-wave" id="music-wave" aria-hidden="true">${Array.from({ length: 16 }, (_, i) => `<i style="--bar:${(i * 7) % 5 + 2}"></i>`).join('')}</div>
         <input class="music-progress" id="music-progress" type="range" min="0" max="0" value="0" step="0.1" aria-label="播放进度" ${site.musicUrl ? '' : 'disabled'}>
         <div class="music-time"><span id="music-current">00:00</span><span id="music-duration">00:00</span></div>
@@ -342,7 +338,7 @@ function setupMusicPlayer(site) {
     if (trackStatus) trackStatus.textContent = playing ? '正在播放 · 点击唱片按钮可暂停' : (audio.ended ? '播放结束 · 可以重新开始' : '准备好了 · 点击播放');
     if (progress) {
       progress.max = hasDuration ? String(audio.duration) : '0';
-      progress.value = hasDuration ? String(audio.currentTime) : '0';
+      if (!seeking) progress.value = hasDuration ? String(audio.currentTime) : '0';
     }
     if (currentTime) currentTime.textContent = formatTime(audio.currentTime);
     if (duration) duration.textContent = formatTime(audio.duration);
@@ -363,6 +359,7 @@ function setupMusicPlayer(site) {
   };
   audio.addEventListener('loadedmetadata', restore, { once: true });
   audio.addEventListener('loadedmetadata', sync);
+  audio.addEventListener('durationchange', sync);
   audio.addEventListener('timeupdate', () => {
     localStorage.setItem(timeKey, String(audio.currentTime));
     if (!seeking) sync();
@@ -375,13 +372,24 @@ function setupMusicPlayer(site) {
   playButton?.addEventListener('click', togglePlayback);
   replayButton?.addEventListener('click', () => { restore(); audio.currentTime = 0; if (audio.paused) togglePlayback(); else sync(); });
   volumeButton?.addEventListener('click', () => { audio.muted = !audio.muted; sync(); });
-  const finishSeek = () => { seeking = false; sync(); };
-  progress?.addEventListener('pointerdown', () => { seeking = true; });
+  let seekTarget = 0;
+  const seekTo = (value) => {
+    if (!Number.isFinite(audio.duration) || audio.duration <= 0) return;
+    const target = Math.min(Math.max(Number(value) || 0, 0), audio.duration);
+    if (typeof audio.fastSeek === 'function') audio.fastSeek(target);
+    else audio.currentTime = target;
+  };
+  const finishSeek = () => {
+    if (!seeking) return;
+    seeking = false;
+    seekTo(seekTarget);
+    sync();
+  };
+  progress?.addEventListener('pointerdown', () => { seeking = true; seekTarget = Number(progress.value) || 0; });
   progress?.addEventListener('input', () => {
     if (!Number.isFinite(audio.duration)) return;
-    const target = Math.min(Math.max(Number(progress.value), 0), audio.duration);
-    audio.currentTime = target;
-    if (currentTime) currentTime.textContent = formatTime(target);
+    seekTarget = Math.min(Math.max(Number(progress.value) || 0, 0), audio.duration);
+    if (currentTime) currentTime.textContent = formatTime(seekTarget);
   });
   progress?.addEventListener('change', finishSeek);
   progress?.addEventListener('pointerup', finishSeek);

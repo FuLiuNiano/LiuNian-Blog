@@ -122,9 +122,9 @@
             <div class="checks"><label><input name="published" type="checkbox" checked> 发布文章</label><label><input name="pinned" type="checkbox"> 首页置顶</label></div>
           </div>
           <div class="writing">
-            <div class="tabs"><button type="button" class="tab active" data-tab="preview">可视化编辑</button><button type="button" class="tab" data-tab="write">Markdown 源码</button><span id="word-count">0 字</span></div>
+            <div class="tabs"><button type="button" class="tab active" data-tab="preview">可视化编辑</button><button type="button" class="tab" data-tab="write">Markdown 源码</button><span style="margin-left:10px;color:var(--muted);font-size:11px">可直接粘贴截图</span><span id="word-count">0 字</span></div>
             <textarea id="content" class="hidden" name="content" spellcheck="false" placeholder="# 从这里开始写作…"></textarea>
-            <article id="preview" class="preview visual-editor" contenteditable="true" spellcheck="true"></article>
+            <article id="preview" class="preview visual-editor" contenteditable="true" spellcheck="true" aria-label="可视化编辑区，可直接粘贴截图插入图片"></article>
           </div>
         </div>
         <footer><span id="save-status" class="muted"></span><div><button type="button" id="cancel-editor" class="ghost">取消</button><button id="save-editor" type="submit" class="primary">保存文章</button></div></footer>
@@ -132,6 +132,6 @@
     </section>
   </div>
   <div id="toast" class="toast hidden"></div>
-  <script src="/admin/admin.js?v=11"></script>
+  <script src="/admin/admin.js?v=12"></script>
 </body>
 </html>

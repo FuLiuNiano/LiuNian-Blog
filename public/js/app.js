@@ -994,7 +994,7 @@ views.post = async (el, params) => {
     }
   });
 
-  // 目录高亮：目录卡片随文章自然滚动，不会吸附或自行滚动。
+  // 目录固定在视口中，并跟随阅读位置高亮和滚动当前章节。
   const heads = $$('#md h2, #md h3');
   const links = $$('.toc-list a', el);
   let activeSlug = '';
@@ -1019,6 +1019,16 @@ views.post = async (el, params) => {
       if (active) a.setAttribute('aria-current', 'location');
       else a.removeAttribute('aria-current');
     });
+    const activeLink = links.find((link) => link.dataset.slug === cur.id);
+    const tocCard = $('.toc-card', el);
+    if (activeLink && tocCard && tocCard.scrollHeight > tocCard.clientHeight) {
+      const cardRect = tocCard.getBoundingClientRect();
+      const linkRect = activeLink.getBoundingClientRect();
+      const visibleTop = cardRect.top + 44;
+      const visibleBottom = cardRect.bottom - 12;
+      if (linkRect.top < visibleTop) tocCard.scrollTop -= visibleTop - linkRect.top;
+      else if (linkRect.bottom > visibleBottom) tocCard.scrollTop += linkRect.bottom - visibleBottom;
+    }
   };
   window.addEventListener('scroll', spy, { passive: true });
   const spyTimer = setInterval(() => {

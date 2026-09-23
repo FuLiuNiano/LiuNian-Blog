@@ -709,14 +709,14 @@ async function otpRequestIsRepeat(namespace, key) {
   return Boolean(sending || (challenge && challenge.sentAt + 60 * 1000 > Date.now()));
 }
 
-async function readBody(req) {
+async function readBody(req, maxBytes = 2 * 1024 * 1024) {
   return new Promise((resolve, reject) => {
     let buf = '';
     let settled = false;
     req.on('data', (c) => {
       if (settled) return;
       buf += c;
-      if (Buffer.byteLength(buf, 'utf8') > 2 * 1024 * 1024) {
+      if (Buffer.byteLength(buf, 'utf8') > maxBytes) {
         settled = true;
         const error = new Error('请求体过大'); error.statusCode = 413;
         reject(error); req.resume();
@@ -1063,6 +1063,29 @@ async function handleApi(req, res, pathname, query) {
 
   if (pathname === '/api/admin/session' && method === 'GET') {
     return sendJson(res, 200, { ok: true, csrfToken: await getAdminCsrfToken(req) });
+  }
+
+  if (pathname === '/api/admin/upload-image' && method === 'POST') {
+    const body = await readBody(req, 11 * 1024 * 1024);
+    const match = String(body.dataUrl || '').match(/^data:(image\/(?:png|jpeg|webp|gif));base64,([A-Za-z0-9+/]+={0,2})$/);
+    if (!match) return sendJson(res, 400, { error: '剪贴板内容不是支持的图片格式（PNG、JPG、WebP、GIF）' });
+    const bytes = Buffer.from(match[2], 'base64');
+    if (!bytes.length || bytes.length > 8 * 1024 * 1024 || bytes.toString('base64') !== match[2]) {
+      return sendJson(res, 413, { error: '图片为空或超过 8 MB，请缩小截图后再粘贴' });
+    }
+    const signatures = [
+      { mime: 'image/png', ext: 'png', ok: bytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])) },
+      { mime: 'image/jpeg', ext: 'jpg', ok: bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff },
+      { mime: 'image/webp', ext: 'webp', ok: bytes.toString('ascii', 0, 4) === 'RIFF' && bytes.toString('ascii', 8, 12) === 'WEBP' },
+      { mime: 'image/gif', ext: 'gif', ok: ['GIF87a', 'GIF89a'].includes(bytes.toString('ascii', 0, 6)) },
+    ];
+    const image = signatures.find((item) => item.mime === match[1] && item.ok);
+    if (!image) return sendJson(res, 400, { error: '图片内容无效或格式与文件不匹配' });
+    const uploadDir = path.join(PUBLIC_DIR, 'uploads');
+    await fs.promises.mkdir(uploadDir, { recursive: true });
+    const filename = `${randomId()}.${image.ext}`;
+    await fs.promises.writeFile(path.join(uploadDir, filename), bytes, { flag: 'wx', mode: 0o644 });
+    return sendJson(res, 201, { url: `/uploads/${filename}` });
   }
 
   if (pathname === '/api/admin/hot-topics/refresh' && method === 'POST') {

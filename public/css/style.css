@@ -940,9 +940,13 @@ body.dark .tl-item:hover { background: rgba(255, 255, 255, 0.07); }
 .pn-card.off { opacity: 0.45; pointer-events: none; }
 
 /* TOC 卡 */
-.toc-card { padding: 20px 22px; position: static; max-height: none; overflow: visible; font-size: 13.5px; }
-.post-layout > aside, .post-layout > aside .toc-card { position: static !important; top: auto !important; max-height: none !important; height: auto !important; overflow: visible !important; align-self: start; }
+.toc-card { padding: 20px 22px; position: static; max-height: calc(100vh - 112px); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; font-size: 13.5px; }
+.post-layout > aside { position: sticky !important; top: 86px !important; align-self: start; }
+.post-layout > aside .toc-card { position: static !important; top: auto !important; max-height: calc(100vh - 112px) !important; height: auto !important; overflow-y: auto !important; overflow-x: hidden !important; align-self: start; }
 .toc-card h4 {
+  position: sticky; top: -20px; z-index: 2;
+  padding: 4px 0 8px; margin: -4px 0 6px;
+  background: var(--glass-bg-strong); backdrop-filter: blur(var(--blur));
   font-size: 14px;
   letter-spacing: 1px;
   color: var(--text-soft);

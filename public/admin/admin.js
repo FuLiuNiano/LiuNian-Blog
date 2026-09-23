@@ -130,6 +130,67 @@ function notify(message) {
   clearTimeout(notify.timer); notify.timer = setTimeout(() => node.classList.add('hidden'), 2200);
 }
 
+function imageFileDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(new Error('读取剪贴板图片失败'));
+    reader.readAsDataURL(file);
+  });
+}
+
+async function uploadPastedImage(file) {
+  const dataUrl = await imageFileDataUrl(file);
+  const result = await request('/api/admin/upload-image', { method: 'POST', body: JSON.stringify({ dataUrl }) });
+  return result.url;
+}
+
+function clipboardImages(event) {
+  const files = [...(event.clipboardData?.items || [])]
+    .filter((item) => item.kind === 'file' && item.type.startsWith('image/'))
+    .map((item) => item.getAsFile()).filter(Boolean);
+  if (!files.length) files.push(...[...(event.clipboardData?.files || [])].filter((file) => file.type.startsWith('image/')));
+  return files;
+}
+
+function insertPastedImage(preview, range, url) {
+  const image = document.createElement('img');
+  image.src = url; image.alt = '粘贴的图片';
+  const selection = window.getSelection();
+  preview.focus({ preventScroll: true });
+  if (range && preview.contains(range.commonAncestorContainer)) {
+    range.deleteContents(); range.insertNode(image); range.setStartAfter(image); range.collapse(true);
+    selection?.removeAllRanges(); selection?.addRange(range);
+  } else preview.append(image);
+  preview.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+async function handleImagePaste(event, target) {
+  const files = clipboardImages(event);
+  if (!files.length) return;
+  event.preventDefault();
+  const preview = target === $('#preview') ? target : null;
+  const selection = window.getSelection();
+  const range = preview && selection?.rangeCount && preview.contains(selection.anchorNode) ? selection.getRangeAt(0).cloneRange() : null;
+  const start = target === $('#content') ? target.selectionStart : 0;
+  const end = target === $('#content') ? target.selectionEnd : 0;
+  notify(`正在上传 ${files.length} 张图片…`);
+  try {
+    const urls = [];
+    for (const file of files) urls.push(await uploadPastedImage(file));
+    if (preview) {
+      for (const url of urls) insertPastedImage(preview, range, url);
+    } else {
+      const markdown = urls.map((url) => `![粘贴的图片](${url})`).join('\n');
+      insertEditorText(markdown, start, end, start + markdown.length, start + markdown.length);
+      target.focus({ preventScroll: true });
+    }
+    notify(`已插入 ${urls.length} 张图片`);
+  } catch (error) {
+    notify(`图片上传失败：${error.message}`);
+  }
+}
+
 async function loadAdmin() {
   await request('/api/admin/session');
   [store.posts, store.site, store.journals] = await Promise.all([request('/api/admin/posts'), request('/api/admin/site'), request('/api/admin/journals')]);
@@ -380,6 +441,8 @@ $('#close-editor').addEventListener('click', closeEditor); $('#cancel-editor').a
 $('#editor-mask').addEventListener('click', (event) => { if (event.target === $('#editor-mask')) closeEditor(); });
 $('#search').addEventListener('input', renderPosts); $('#filter').addEventListener('change', renderPosts); $('#content').addEventListener('input', () => { updateCount(); if (!$('#preview').classList.contains('hidden')) loadPreview(); });
 $('#preview').addEventListener('input', syncVisualEditor);
+$('#preview').addEventListener('paste', (event) => handleImagePaste(event, $('#preview')));
+$('#content').addEventListener('paste', (event) => handleImagePaste(event, $('#content')));
 $('#content').addEventListener('keydown', (event) => {
   if (!(event.ctrlKey || event.metaKey)) return;
   const type = event.key.toLowerCase() === 'b' ? 'bold' : event.key.toLowerCase() === 'i' ? 'italic' : event.key.toLowerCase() === 'k' ? 'link' : '';

@@ -121,7 +121,7 @@ Node 版本应显示 `v22` 或更高版本。
 
 ```bash
 sudo adduser --system --group --home /srv/leaf-blog leaf
-sudo mkdir -p /srv/leaf-blog /var/lib/leaf-blog /var/backups/leaf-blog
+sudo mkdir -p /srv/leaf-blog /srv/leaf-blog/public/uploads /var/lib/leaf-blog /var/backups/leaf-blog
 sudo chown -R leaf:leaf /srv/leaf-blog /var/lib/leaf-blog /var/backups/leaf-blog
 ```
 
@@ -309,7 +309,7 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectHome=true
 ProtectSystem=strict
-ReadWritePaths=/srv/leaf-blog/data /var/lib/leaf-blog /var/backups/leaf-blog
+ReadWritePaths=/srv/leaf-blog/data /srv/leaf-blog/public/uploads /var/lib/leaf-blog /var/backups/leaf-blog
 
 [Install]
 WantedBy=multi-user.target
@@ -322,6 +322,22 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now leaf-blog
 sudo systemctl status leaf-blog --no-pager
 ```
+
+如果博客已部署过，且服务文件仍没有 `ReadWritePaths=/srv/leaf-blog/public/uploads`，需要给运行用户开放图片目录写入权限。可创建 systemd 覆盖配置：
+
+```bash
+sudo install -d -o leaf -g leaf -m 755 /srv/leaf-blog/public/uploads
+sudo systemctl edit leaf-blog
+```
+
+在打开的编辑器中添加并保存：
+
+```ini
+[Service]
+ReadWritePaths=/srv/leaf-blog/public/uploads
+```
+
+随后运行 `sudo systemctl daemon-reload && sudo systemctl restart leaf-blog`。
 
 查看日志：
 
@@ -358,10 +374,12 @@ server {
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_read_timeout 60s;
-        client_max_body_size 2m;
+        client_max_body_size 12m;
     }
 }
 ```
+
+如果使用 1Panel 反向代理，也要把该站点 Nginx 的请求体大小上限设为 `12m`，否则较大的截图会被代理服务器以 `413 Request Entity Too Large` 拦截，应用收不到上传请求。
 
 启用配置并检查：
 

@@ -940,13 +940,12 @@ body.dark .tl-item:hover { background: rgba(255, 255, 255, 0.07); }
 .pn-card.off { opacity: 0.45; pointer-events: none; }
 
 /* TOC 卡 */
-.toc-card { padding: 20px 22px; position: static; max-height: calc(100vh - 112px); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; font-size: 13.5px; }
+.toc-card { padding: 20px 22px; position: static; max-height: calc(100vh - 112px); overflow: hidden; display: flex; flex-direction: column; overscroll-behavior: contain; font-size: 13.5px; }
 .post-layout > aside { position: sticky !important; top: 86px !important; align-self: start; }
-.post-layout > aside .toc-card { position: static !important; top: auto !important; max-height: calc(100vh - 112px) !important; height: auto !important; overflow-y: auto !important; overflow-x: hidden !important; align-self: start; }
+.post-layout > aside .toc-card { position: static !important; top: auto !important; max-height: calc(100vh - 112px) !important; height: auto !important; overflow: hidden !important; align-self: start; }
 .toc-card h4 {
-  position: sticky; top: -20px; z-index: 2;
+  position: static; flex: 0 0 auto;
   padding: 4px 0 8px; margin: -4px 0 6px;
-  background: var(--glass-bg-strong); backdrop-filter: blur(var(--blur));
   font-size: 14px;
   letter-spacing: 1px;
   color: var(--text-soft);
@@ -954,7 +953,7 @@ body.dark .tl-item:hover { background: rgba(255, 255, 255, 0.07); }
   display: flex; align-items: center; gap: 7px;
 }
 .toc-card h4 svg { width: 14px; height: 14px; }
-.toc-list { list-style: none; }
+.toc-list { list-style: none; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
 .toc-list a {
   display: block;
   padding: 4px 12px;

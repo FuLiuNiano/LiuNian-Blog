@@ -1020,14 +1020,14 @@ views.post = async (el, params) => {
       else a.removeAttribute('aria-current');
     });
     const activeLink = links.find((link) => link.dataset.slug === cur.id);
-    const tocCard = $('.toc-card', el);
-    if (activeLink && tocCard && tocCard.scrollHeight > tocCard.clientHeight) {
-      const cardRect = tocCard.getBoundingClientRect();
+    const tocList = $('.toc-list', el);
+    if (activeLink && tocList && tocList.scrollHeight > tocList.clientHeight) {
+      const listRect = tocList.getBoundingClientRect();
       const linkRect = activeLink.getBoundingClientRect();
-      const visibleTop = cardRect.top + 44;
-      const visibleBottom = cardRect.bottom - 12;
-      if (linkRect.top < visibleTop) tocCard.scrollTop -= visibleTop - linkRect.top;
-      else if (linkRect.bottom > visibleBottom) tocCard.scrollTop += linkRect.bottom - visibleBottom;
+      const visibleTop = listRect.top + 4;
+      const visibleBottom = listRect.bottom - 4;
+      if (linkRect.top < visibleTop) tocList.scrollTop -= visibleTop - linkRect.top;
+      else if (linkRect.bottom > visibleBottom) tocList.scrollTop += linkRect.bottom - visibleBottom;
     }
   };
   window.addEventListener('scroll', spy, { passive: true });

@@ -123,7 +123,7 @@ BLOG_GROUP="$(id -gn "$BLOG_USER")"
 
 systemctl stop leaf-blog.service >/dev/null 2>&1 || true
 install -d -o "$BLOG_USER" -g "$BLOG_GROUP" \
-  "$BLOG_APP_DIR" "$BLOG_APP_DIR/data" "$BLOG_APP_DIR/data/content" \
+  "$BLOG_APP_DIR" "$BLOG_APP_DIR/data" "$BLOG_APP_DIR/data/content" "$BLOG_APP_DIR/public/uploads" \
   "$BLOG_STATE_DIR" "$BLOG_BACKUP_DIR"
 if [[ "$BLOG_SOURCE_DIR" != "$BLOG_APP_DIR" ]]; then
   rsync -a \
@@ -238,7 +238,7 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectHome=true
 ProtectSystem=strict
-ReadWritePaths=$BLOG_APP_DIR/data $BLOG_STATE_DIR $BLOG_BACKUP_DIR
+ReadWritePaths=$BLOG_APP_DIR/data $BLOG_APP_DIR/public/uploads $BLOG_STATE_DIR $BLOG_BACKUP_DIR
 [Install]
 WantedBy=multi-user.target
 EOF
@@ -260,7 +260,7 @@ server {
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto \$scheme;
         proxy_read_timeout 60s;
-        client_max_body_size 2m;
+        client_max_body_size 12m;
     }
 }
 EOF

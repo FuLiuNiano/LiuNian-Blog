@@ -67,6 +67,8 @@
 .visual-editor:empty::before { content: '点击这里直接开始写作…'; color: var(--muted); pointer-events: none; }
 .visual-editor:focus { background: linear-gradient(180deg, rgba(40,122,89,.025), transparent 120px); }
 .visual-editor img { cursor: pointer; }
+.visual-editor img.resource-unavailable-source { display: none; }
+.visual-editor .resource-unavailable-label { display: inline-flex; align-items: center; gap: 6px; margin: 6px 0; padding: 5px 9px; border: 1px dashed #cbd4ce; border-radius: 4px; background: #f4f6f5; color: #737d86; font-size: 12px; }
 .stats { grid-template-columns: repeat(5, minmax(0, 1fr)); }
 .journal-admin-intro { margin-bottom: 14px; padding: 14px 16px; background: #eef6f0; border: 1px solid #dcebe0; color: var(--muted); font-size: 13px; line-height: 1.7; }
 .journal-admin-list { display: grid; gap: 12px; }

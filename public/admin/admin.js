@@ -340,13 +340,14 @@ function htmlToMarkdown(root) {
     if (child.nodeType !== Node.ELEMENT_NODE) return '';
     const tag = child.tagName.toLowerCase();
     if (child.matches('.md-anchor')) return '';
+    if (child.matches('.resource-unavailable-label')) return '';
     const text = inline(child);
     if (tag === 'strong' || tag === 'b') return `**${text}**`;
     if (tag === 'em' || tag === 'i') return `*${text}*`;
     if (tag === 'del' || tag === 's') return `~~${text}~~`;
     if (tag === 'code' && child.parentElement?.tagName.toLowerCase() !== 'pre') return `\`${text}\``;
     if (tag === 'a') return `[${text}](${child.getAttribute('href') || '#'})`;
-    if (tag === 'img') return `![${child.getAttribute('alt') || ''}](${child.getAttribute('src') || ''})`;
+    if (tag === 'img') return `![${child.dataset.originalAlt ?? child.getAttribute('alt') ?? ''}](${child.getAttribute('src') || ''})`;
     if (tag === 'br') return '\n';
     return text;
   }).join('');
@@ -441,6 +442,20 @@ $('#close-editor').addEventListener('click', closeEditor); $('#cancel-editor').a
 $('#editor-mask').addEventListener('click', (event) => { if (event.target === $('#editor-mask')) closeEditor(); });
 $('#search').addEventListener('input', renderPosts); $('#filter').addEventListener('change', renderPosts); $('#content').addEventListener('input', () => { updateCount(); if (!$('#preview').classList.contains('hidden')) loadPreview(); });
 $('#preview').addEventListener('input', syncVisualEditor);
+$('#preview').addEventListener('error', (event) => {
+  const image = event.target;
+  if (!(image instanceof HTMLImageElement) || image.dataset.unavailableHandled) return;
+  image.dataset.unavailableHandled = 'true';
+  image.dataset.originalAlt = image.getAttribute('alt') || '';
+  image.classList.add('resource-unavailable-source');
+  const label = document.createElement('span');
+  label.className = 'resource-unavailable-label';
+  label.contentEditable = 'false';
+  label.setAttribute('role', 'img');
+  label.setAttribute('aria-label', image.dataset.originalAlt ? `图片无法加载：${image.dataset.originalAlt}` : '外部资源暂时不可用');
+  label.textContent = '▧ 外部资源暂时不可用';
+  image.after(label);
+}, true);
 $('#preview').addEventListener('paste', (event) => handleImagePaste(event, $('#preview')));
 $('#content').addEventListener('paste', (event) => handleImagePaste(event, $('#content')));
 $('#content').addEventListener('keydown', (event) => {
